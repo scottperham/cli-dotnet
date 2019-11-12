@@ -84,7 +84,7 @@ namespace cli_dotnet
 
                 if (option.Value.LongForm != null)
                 {
-                    name += " --" + option.Value.LongForm + "=<value>";
+                    name += " --" + option.Value.LongForm + (option.Value.Parameter.ParameterType == typeof(bool) ? "" : "=<value>");
                 }
 
                 Console.WriteLine(name.PadRight(30, ' ') + option.Value.HelpText);
