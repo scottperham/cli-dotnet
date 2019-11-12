@@ -8,11 +8,13 @@ namespace cli_dotnet
 {
     public class CommandExecutor
     {
-        private CommandParser _parser;
+        private readonly CommandParser _parser;
+        private readonly CommandExecutorOptions _options;
 
-        public CommandExecutor(string command)
+        public CommandExecutor(string command, CommandExecutorOptions executorOptions = null)
         {
             _parser = new CommandParser(command);
+            _options = executorOptions ?? new CommandExecutorOptions();
         }
 
         async public Task ExecuteAsync<T>(T rootCommand)
@@ -37,11 +39,11 @@ namespace cli_dotnet
 
                 if (bce.Command != null)
                 {
-                    CommandHelper.WriteCommandHelp(bce.Command);
+                    CommandHelper.WriteCommandHelp(bce.Command, _options);
                 }
                 else
                 {
-                    CommandHelper.WriteVerbHelp(bce.Verb);
+                    CommandHelper.WriteVerbHelp(bce.Verb, _options);
                 }
             }
         }
@@ -57,9 +59,8 @@ namespace cli_dotnet
             {
                 var key = _parser.GetString(commandParts.Current.Key);
 
-                if ((commandParts.Current.IsShortForm && key == "h") || (!commandParts.Current.IsShortForm && key.Equals("help", StringComparison.OrdinalIgnoreCase)))
+                if (TryShowHelp(commandParts.Current, verb, key))
                 {
-                    CommandHelper.WriteVerbHelp(verb);
                     return;
                 }
 
@@ -84,6 +85,28 @@ namespace cli_dotnet
             throw new BadCommandException(verb, name);
         }
 
+        bool TryShowHelp(CommandPart commandPart, CommandAttribute command, string key)
+        {
+            if ((commandPart.IsShortForm && key[0] == _options.HelpShortForm) || (!commandPart.IsShortForm && key.Equals(_options.HelpLongForm, StringComparison.OrdinalIgnoreCase)))
+            {
+                CommandHelper.WriteCommandHelp(command, _options);
+                return true;
+            }
+
+            return false;
+        }
+
+        bool TryShowHelp(CommandPart commandPart, VerbAttribute verb, string key)
+        {
+            if ((commandPart.IsShortForm && key[0] == _options.HelpShortForm) || (!commandPart.IsShortForm && key.Equals(_options.HelpLongForm, StringComparison.OrdinalIgnoreCase)))
+            {
+                CommandHelper.WriteVerbHelp(verb, _options);
+                return true;
+            }
+
+            return false;
+        }
+
         async private Task ExecuteCommandAsync(CommandAttribute command, IEnumerator<CommandPart> commandParts)
         {
             var parameters = new SortedList<int, object>();
@@ -96,9 +119,8 @@ namespace cli_dotnet
 
                 if (commandParts.Current.IsArgument)
                 {
-                    if ((commandParts.Current.IsShortForm && key == "h") || (!commandParts.Current.IsShortForm && key.Equals("help", StringComparison.OrdinalIgnoreCase)))
+                    if (TryShowHelp(commandParts.Current, command, key))
                     {
-                        CommandHelper.WriteCommandHelp(command);
                         return;
                     }
 

@@ -7,7 +7,7 @@ namespace cli_dotnet
 {
     public class CommandHelper
     {
-        public static void WriteVerbHelp(VerbAttribute verb)
+        public static void WriteVerbHelp(VerbAttribute verb, CommandExecutorOptions options)
         {
             var sortedDictionary = new SortedDictionary<string, string>();
 
@@ -15,11 +15,13 @@ namespace cli_dotnet
 
             if (verb.IsRoot)
             {
+                Console.WriteLine();
                 Console.WriteLine("Usage:");
 
-                Console.WriteLine($"    {Path.GetFileNameWithoutExtension(Assembly.GetEntryAssembly().Location)} [Command]");
+                Console.WriteLine($"    {Path.GetFileNameWithoutExtension(Assembly.GetEntryAssembly().Location)} [Command]"); 
             }
 
+            Console.WriteLine();
             Console.WriteLine("Commands:");
 
             foreach (var help in sortedDictionary)
@@ -27,11 +29,13 @@ namespace cli_dotnet
                 Console.WriteLine($"    {help.Key.PadRight(30, ' ')}{help.Value}");
             }
 
-            Console.WriteLine("For help with command syntax, type `<command> --help` or `<command> -h`");
+            Console.WriteLine();
+            Console.WriteLine($"For help with command syntax, type `<command> --{options.HelpLongForm}` or `<command> -{options.HelpShortForm}`");
         }
 
-        public static void WriteCommandHelp(CommandAttribute command)
+        public static void WriteCommandHelp(CommandAttribute command, CommandExecutorOptions options)
         {
+            Console.WriteLine();
             Console.WriteLine("Command Syntax:");
             Console.Write($"    {command.GetName()}");
 
@@ -49,6 +53,7 @@ namespace cli_dotnet
 
             if (command.Values.Count > 0)
             {
+                Console.WriteLine();
                 Console.WriteLine("Values:");
 
                 foreach (var value in command.Values)
@@ -62,6 +67,7 @@ namespace cli_dotnet
                 return;
             }
 
+            Console.WriteLine();
             Console.WriteLine("Options:");
 
             var written = new HashSet<OptionAttribute>();

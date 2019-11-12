@@ -77,10 +77,10 @@ namespace testcli
         [Verb]
         public UserActions User { get; }
 
-        [Command]
+        [Command(helpText:"Logs in a user")]
         public Task Login(
-            [Value]string username, 
-            [Value]string password)
+            [Value(helpText:"The username of the user to login")]string username, 
+            [Value(helpText: "The password of the user to login")]string password)
         {
             if (!_state.Users.TryGetValue(username, out var user) || user.Password != password)
             {
@@ -99,7 +99,7 @@ namespace testcli
             return Task.CompletedTask;
         }
 
-        [Command]
+        [Command(helpText:"Logs out the current user")]
         public Task Logout()
         {
             _state.CurrentContext = null;
@@ -116,7 +116,7 @@ namespace testcli
             _state = state;
         }
 
-        [Command]
+        [Command(helpText:"Creates a new user")]
         public Task Create(
             [Value] string username, 
             [Value] string password,
@@ -139,7 +139,7 @@ namespace testcli
             return Task.CompletedTask;
         }
 
-        [Command]
+        [Command(helpText:"Lists users")]
         public Task List(
             [Option('a', "all", "Include users who aren't allowed to login")]bool showAll)
         {
@@ -156,8 +156,9 @@ namespace testcli
             return Task.CompletedTask;
         }
 
-        [Command]
-        public Task Remove([Value] string username)
+        [Command(helpText:"Removes a user")]
+        public Task Remove(
+            [Value] string username)
         {
             if (_state.CurrentContext?.Username.Equals(username, StringComparison.OrdinalIgnoreCase) == true)
             {
