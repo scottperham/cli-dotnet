@@ -27,7 +27,19 @@ namespace testcli
                     break;
                 }
 
-                await ExecuteAsync(command, state);
+                try
+                {
+                    await ExecuteAsync(command, state);
+                }
+                catch(Exception ex)
+                {
+                    var oldColor = Console.ForegroundColor;
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine(ex.GetBaseException().Message);
+                    Console.ForegroundColor = oldColor;
+                }
+
+                Console.WriteLine();
             }
         }
 
@@ -72,14 +84,12 @@ namespace testcli
         {
             if (!_state.Users.TryGetValue(username, out var user) || user.Password != password)
             {
-                Console.WriteLine("Unable to login, bad username or password");
-                return Task.CompletedTask;
+                throw new Exception("Unable to login, bad username or password");
             }
 
             if (!user.CanLogin)
             {
-                Console.WriteLine("User not allowed to login");
-                return Task.CompletedTask;
+                throw new Exception("User not allowed to login");
             }
 
             Console.WriteLine("Login successful");
@@ -114,8 +124,7 @@ namespace testcli
         {
             if (_state.Users.ContainsKey(username))
             {
-                Console.WriteLine("User already exists with that username");
-                return Task.CompletedTask;
+                throw new Exception("User already exists with that username");
             }
 
             _state.Users[username] = new State.User
@@ -126,6 +135,38 @@ namespace testcli
             };
 
             Console.WriteLine("User created");
+
+            return Task.CompletedTask;
+        }
+
+        [Command]
+        public Task List(
+            [Option('a', "all", "Include users who aren't allowed to login")]bool showAll)
+        {
+            foreach(var user in _state.Users.Values)
+            {
+                if (!showAll && !user.CanLogin)
+                {
+                    continue;
+                }
+
+                Console.WriteLine(user.Username);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        [Command]
+        public Task Remove([Value] string username)
+        {
+            if (_state.CurrentContext?.Username.Equals(username, StringComparison.OrdinalIgnoreCase) == true)
+            {
+                throw new Exception("Unable to remove current user");
+            }
+
+            _state.Users.Remove(username);
+
+            Console.WriteLine("User removed");
 
             return Task.CompletedTask;
         }

@@ -133,12 +133,7 @@ namespace cli_dotnet
             {
                 if (!parameters.ContainsKey(parameter.Position))
                 {
-                    if (!parameter.HasDefaultValue)
-                    {
-                        throw new BadCommandException(command, "");
-                    }
-
-                    parameters.Add(parameter.Position, parameter.DefaultValue);
+                    parameters.Add(parameter.Position, parameter.HasDefaultValue ? parameter.DefaultValue : Activator.CreateInstance(parameter.ParameterType));
                 }
             }
 
