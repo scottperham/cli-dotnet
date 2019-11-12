@@ -1,6 +1,7 @@
 ﻿using cli_dotnet;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace testcli
@@ -141,9 +142,21 @@ namespace testcli
 
         [Command(helpText:"Lists users")]
         public Task List(
-            [Option('a', "all", "Include users who aren't allowed to login")]bool showAll)
+            [Option('a', "all", "Include users who aren't allowed to login")]bool showAll,
+            [Option('d', "desc", "Sort users in decending order")]bool descending)
         {
-            foreach(var user in _state.Users.Values)
+            var users = _state.Users.Values.AsEnumerable();
+
+            if (descending)
+            {
+                users = users.OrderByDescending(x => x.Username);
+            }
+            else
+            {
+                users = users.OrderBy(x => x.Username);
+            }
+
+            foreach(var user in users)
             {
                 if (!showAll && !user.CanLogin)
                 {
