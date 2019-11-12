@@ -1,4 +1,4 @@
-﻿namespace CLI
+﻿namespace cli_dotnet
 {
 
     public class OptionAttribute : ParameterAttribute

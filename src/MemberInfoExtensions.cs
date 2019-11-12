@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Reflection;
 
-namespace CLI
+namespace cli_dotnet
 {
     public static class MemberInfoExtensions
     {

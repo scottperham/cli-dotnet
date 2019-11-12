@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace CLI
+namespace cli_dotnet
 {
     public class CommandParser
     {

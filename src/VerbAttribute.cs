@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 
-namespace CLI
+namespace cli_dotnet
 {
     [AttributeUsage(AttributeTargets.Property)]
     public class VerbAttribute : Attribute

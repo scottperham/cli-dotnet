@@ -4,27 +4,8 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 
-namespace CLI
+namespace cli_dotnet
 {
-    public class BadCommandException : Exception
-    { 
-        public BadCommandException(VerbAttribute verb, string badCommand)
-        {
-            Verb = verb;
-            BadCommand = badCommand;
-        }
-
-        public BadCommandException(CommandAttribute command, string badCommand)
-        {
-            Command = command;
-            BadCommand = badCommand;
-        }
-
-        public VerbAttribute Verb { get; }
-        public CommandAttribute Command { get; }
-        public string BadCommand { get; }
-    }
-
     public class CommandExecutor
     {
         private CommandParser _parser;
@@ -56,102 +37,12 @@ namespace CLI
 
                 if (bce.Command != null)
                 {
-                    WriteCommandHelp(bce.Command);
+                    CommandHelper.WriteCommandHelp(bce.Command);
                 }
                 else
                 {
-                    WriteVerbHelp(bce.Verb);
+                    CommandHelper.WriteVerbHelp(bce.Verb);
                 }
-            }
-        }
-
-        void WriteVerbHelp(VerbAttribute verb)
-        {
-            var sortedDictionary = new SortedDictionary<string, string>();
-
-            GetVerbHelp(verb, "", sortedDictionary);
-
-            foreach (var help in sortedDictionary)
-            {
-                Console.WriteLine($"{help.Key}\t\t\t{help.Value}");
-            }
-        }
-
-        void WriteCommandHelp(CommandAttribute command)
-        {
-            Console.WriteLine("Command Syntax:");
-            Console.Write($"\t{command.GetName()}");
-
-            foreach(var value in command.Values)
-            {
-                Console.Write($" {{{value.Parameter.Name}}}");
-            }
-
-            if (command.Options.Count > 0)
-            {
-                Console.Write(" [Options]");
-            }
-
-            Console.WriteLine();
-
-            if (command.Values.Count > 0)
-            {
-                Console.WriteLine("Values:");
-
-                foreach(var value in command.Values)
-                {
-                    Console.WriteLine($"\t {value.GetName().PadRight(20, ' ')}{value.HelpText}");
-                }
-            }
-
-            if (command.Options.Count == 0)
-            {
-                return;
-            }
-
-            Console.WriteLine("Options:");
-
-            var written = new HashSet<OptionAttribute>();
-
-            foreach(var option in command.Options)
-            {
-                Console.Write("\t");
-
-                if (written.Contains(option.Value))
-                {
-                    continue;
-                }
-
-                string name = "";
-
-                if (option.Value.ShortForm != '\0')
-                {
-                    name = " -" + option.Value.ShortForm;
-                }
-
-                if (option.Value.LongForm != null)
-                {
-                    name += " --" + option.Value.LongForm;
-                }
-
-                Console.WriteLine(name.PadRight(20, ' ') + option.Value.HelpText);
-
-                written.Add(option.Value);
-            }
-
-            Console.WriteLine();
-        }
-
-        void GetVerbHelp(VerbAttribute verb, string prefix, SortedDictionary<string, string> help)
-        {
-            foreach(var innerVerb in verb.Verbs.Values)
-            {
-                GetVerbHelp(innerVerb, $"{prefix} {innerVerb.GetName()}", help);
-            }
-
-            foreach(var command in verb.Commands)
-            {
-                help.Add($"{prefix} {command.Key}", command.Value.HelpText);
             }
         }
 
@@ -168,7 +59,7 @@ namespace CLI
 
                 if ((commandParts.Current.IsShortForm && key == "h") || (!commandParts.Current.IsShortForm && key.Equals("help", StringComparison.OrdinalIgnoreCase)))
                 {
-                    WriteVerbHelp(verb);
+                    CommandHelper.WriteVerbHelp(verb);
                     return;
                 }
 
@@ -207,7 +98,7 @@ namespace CLI
                 {
                     if ((commandParts.Current.IsShortForm && key == "h") || (!commandParts.Current.IsShortForm && key.Equals("help", StringComparison.OrdinalIgnoreCase)))
                     {
-                        WriteCommandHelp(command);
+                        CommandHelper.WriteCommandHelp(command);
                         return;
                     }
 

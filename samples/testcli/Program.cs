@@ -1,7 +1,8 @@
-﻿using System;
+﻿using cli_dotnet;
+using System;
 using System.Threading.Tasks;
 
-namespace CLI
+namespace testcli
 {
     class Program
     {
@@ -13,12 +14,12 @@ namespace CLI
 
                 var commandExecutor = new CommandExecutor(Console.ReadLine());
 
-                await commandExecutor.ExecuteAsync(new Root());
+                await commandExecutor.ExecuteAsync(new CommandRoot());
             }
         }
     }
 
-    public class Root
+    public class CommandRoot
     {
         [Verb]
         public CreateVerb Create { get; } = new CreateVerb();

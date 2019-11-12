@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Reflection;
 
-namespace CLI
+namespace cli_dotnet
 {
     [AttributeUsage(AttributeTargets.Parameter)]
     public abstract class ParameterAttribute : Attribute
