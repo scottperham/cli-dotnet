@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace cli_dotnet
 {
@@ -39,7 +40,7 @@ namespace cli_dotnet
             return false;
         }
 
-        StringReference ScanTo(char ch, char escape = '\0')
+        StringReference ScanTo(char ch, char escape = '\0', bool consumeFinal = true, params char[] stopIf)
         {
             var start = 0;
             var end = 0;
@@ -49,10 +50,13 @@ namespace cli_dotnet
 
             while ((next = Peek()) != '\0')
             {
-                if (next == ch && (escape == '\0' || escape != prev))
+                if ((next == ch && (escape == '\0' || escape != prev)) || stopIf.Contains(next))
                 {
-                    Consume();
-                    end = _position;
+                    if (consumeFinal)
+                    {
+                        Consume();
+                    }
+                    end = _position + (consumeFinal ? 0 : 1);
                     break;
                 }
 
@@ -69,8 +73,11 @@ namespace cli_dotnet
             
             if (!first && end == 0)
             {
-                Consume();
-                end = _position;
+                if (consumeFinal)
+                {
+                    Consume();
+                }
+                end = _position + (consumeFinal ? 0 : 1);
             }
 
             return new StringReference
@@ -111,6 +118,7 @@ namespace cli_dotnet
         bool TryGetCommandPart(out CommandPart commandPart)
         {
             var longForm = false;
+            var consumeLast = false;
 
             bool isArg;
             if (isArg = ConsumeIf('-'))
@@ -119,28 +127,65 @@ namespace cli_dotnet
             }
 
             StringReference value = default;
+            StringReference key = default;
 
-            var key = ScanTo(longForm ? '=' : ' ');
-
-            if (isArg && (longForm || (!longForm && key.Length == 1)))
+            if (isArg)
             {
-                var ch = Peek();
+                consumeLast = true;
 
-                if (longForm || ch != '-')
+                key = ScanTo(longForm ? '=' : ' ', '\0', false, ' ', '\0');
+
+                if (longForm || (!longForm && key.Length == 1))
                 {
-                    if (ch == '"' || ch == '\'')
+                    var ch = Peek();
+
+                    if ((longForm && ch == '=') || (!longForm && ch == ' '))
                     {
                         Consume();
 
-                        value = ScanTo(ch, '\\');
+                        consumeLast = false;
 
-                        ConsumeIf(' ');
-                    }
-                    else
-                    {
-                        value = ScanTo(' ');
+                        ch = Peek();
+
+                        if (longForm || ch != '-')
+                        {
+                            if (ch == '"' || ch == '\'')
+                            {
+                                Consume();
+
+                                value = ScanTo(ch, '\\');
+
+                                ConsumeIf(' ');
+                            }
+                            else
+                            {
+                                value = ScanTo(' ');
+                            }
+                        }
                     }
                 }
+            }
+            else
+            {
+                var ch = Peek();
+
+                if (ch == '"' || ch == '\'')
+                {
+                    Consume();
+
+                    key = ScanTo(ch, '\\');
+
+                    ConsumeIf(' ');
+                }
+                else
+                {
+                    key = ScanTo(' ');
+                }
+            }
+
+            if (consumeLast)
+            {
+                Consume();
             }
 
             commandPart = new CommandPart
