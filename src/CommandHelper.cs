@@ -7,6 +7,28 @@ namespace cli_dotnet
 {
     public class CommandHelper
     {
+        public static bool TryShowHelp(CommandPart commandPart, CommandAttribute command, string key, CommandExecutorOptions options)
+        {
+            if ((commandPart.IsShortForm && key[0] == options.HelpShortForm) || (!commandPart.IsShortForm && key.Equals(options.HelpLongForm, StringComparison.OrdinalIgnoreCase)))
+            {
+                WriteCommandHelp(command, options);
+                return true;
+            }
+
+            return false;
+        }
+
+        public static bool TryShowHelp(CommandPart commandPart, VerbAttribute verb, string key, CommandExecutorOptions options)
+        {
+            if ((commandPart.IsShortForm && key[0] == options.HelpShortForm) || (!commandPart.IsShortForm && key.Equals(options.HelpLongForm, StringComparison.OrdinalIgnoreCase)))
+            {
+                WriteVerbHelp(verb, options);
+                return true;
+            }
+
+            return false;
+        }
+
         public static void WriteVerbHelp(VerbAttribute verb, CommandExecutorOptions options)
         {
             var sortedDictionary = new SortedDictionary<string, string>();

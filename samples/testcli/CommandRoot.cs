@@ -10,12 +10,12 @@ namespace testcli
 
         public CommandRoot(State state)
         {
-            User = new UserActions(state);
+            UserAction = new UserActions(state);
             _state = state;
         }
 
         [Verb]
-        public UserActions User { get; }
+        public UserActions UserAction { get; }
 
         [Command(helpText:"Logs in a user")]
         public Task Login(

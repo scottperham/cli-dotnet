@@ -35,7 +35,7 @@ namespace cli_dotnet
             }
             catch(BadCommandException bce)
             {
-                Console.WriteLine("Bad command");
+                Console.WriteLine(bce.BadCommand);
 
                 if (bce.Command != null)
                 {
@@ -52,19 +52,19 @@ namespace cli_dotnet
         {
             if (!commandParts.MoveNext())
             {
-                throw new BadCommandException(verb, "");
+                throw new BadCommandException(verb, "Malformed command");
             }
 
             if (commandParts.Current.IsArgument)
             {
                 var key = _parser.GetString(commandParts.Current.Key);
 
-                if (TryShowHelp(commandParts.Current, verb, key))
+                if (CommandHelper.TryShowHelp(commandParts.Current, verb, key, _options))
                 {
                     return;
                 }
 
-                throw new BadCommandException(verb, "");
+                throw new BadCommandException(verb, "Unexpected option");
             }
 
             var name = _parser.GetString(commandParts.Current.Key);
@@ -85,28 +85,6 @@ namespace cli_dotnet
             throw new BadCommandException(verb, name);
         }
 
-        bool TryShowHelp(CommandPart commandPart, CommandAttribute command, string key)
-        {
-            if ((commandPart.IsShortForm && key[0] == _options.HelpShortForm) || (!commandPart.IsShortForm && key.Equals(_options.HelpLongForm, StringComparison.OrdinalIgnoreCase)))
-            {
-                CommandHelper.WriteCommandHelp(command, _options);
-                return true;
-            }
-
-            return false;
-        }
-
-        bool TryShowHelp(CommandPart commandPart, VerbAttribute verb, string key)
-        {
-            if ((commandPart.IsShortForm && key[0] == _options.HelpShortForm) || (!commandPart.IsShortForm && key.Equals(_options.HelpLongForm, StringComparison.OrdinalIgnoreCase)))
-            {
-                CommandHelper.WriteVerbHelp(verb, _options);
-                return true;
-            }
-
-            return false;
-        }
-
         async private Task ExecuteCommandAsync(CommandAttribute command, IEnumerator<CommandPart> commandParts)
         {
             var parameters = new SortedList<int, object>();
@@ -119,32 +97,31 @@ namespace cli_dotnet
 
                 if (commandParts.Current.IsArgument)
                 {
-                    if (TryShowHelp(commandParts.Current, command, key))
+                    if (CommandHelper.TryShowHelp(commandParts.Current, command, key, _options))
                     {
                         return;
                     }
 
                     if (!command.Options.TryGetValue(key, out var option))
                     {
-                        throw new BadCommandException(command, key);
+                        throw new BadCommandException(command, $"Unknown option {key}");
                     }
 
                     var value = _parser.GetString(commandParts.Current.Value);
 
-                    argValue = GetValue(value, option.Parameter);
+                    argValue = GetValue(value, option.Parameter, key);
                     argPos = option.Parameter.Position;
                 }
                 else
                 {
-
                     var parameter = command.Values.Select(x => x.Parameter).FirstOrDefault(x => !parameters.ContainsKey(x.Position));
 
                     if (parameter == null)
                     {
-                        throw new BadCommandException(command, "");
+                        throw new BadCommandException(command, $"Too many values");
                     }
 
-                    argValue = GetValue(key, parameter);
+                    argValue = GetValue(key, parameter, key);
                     argPos = parameter.Position;
                 }
 
@@ -169,14 +146,28 @@ namespace cli_dotnet
             return;
         }
 
-        object GetValue(string value, ParameterInfo parameter)
+        object GetValue(string value, ParameterInfo parameter, string name)
         {
-            if (parameter.ParameterType == typeof(bool))
+            var type = parameter.ParameterType;
+
+            if (type == typeof(bool))
             {
                 return true;
             }
 
-            return Convert.ChangeType(value, Type.GetTypeCode(parameter.ParameterType));
+            if (type.HasElementType)
+            {
+                type = type.GetElementType();
+            }
+
+            try
+            {
+                return Convert.ChangeType(value, Type.GetTypeCode(type));
+            }
+            catch
+            {
+                throw new BadCommandException(parameter.ParameterType, $"Invalid value fro {name}");
+            }
         }
 
         private void Decorate(VerbAttribute parentVerbAtt)

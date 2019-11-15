@@ -127,7 +127,7 @@ namespace cli_dotnet
             }
 
             StringReference value = default;
-            StringReference key = default;
+            StringReference key;
 
             if (isArg)
             {
