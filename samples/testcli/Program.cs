@@ -10,43 +10,51 @@ namespace testcli
         {
             var state = new State();
 
-            while (true)
+            if (args.Length == 0)
             {
-                Console.Write($"{state.CurrentContext?.Username ?? "root"}> ");
 
-                var command = Console.ReadLine();
-
-                if (string.IsNullOrWhiteSpace(command))
+                while (true)
                 {
-                    continue;
-                }
+                    Console.Write($"{state.CurrentContext?.Username ?? "root"}> ");
 
-                if (command.Equals("exit", StringComparison.OrdinalIgnoreCase))
-                {
-                    break;
-                }
+                    var command = Console.ReadLine();
 
-                try
-                {
+                    if (string.IsNullOrWhiteSpace(command))
+                    {
+                        continue;
+                    }
+
+                    if (command.Equals("exit", StringComparison.OrdinalIgnoreCase))
+                    {
+                        break;
+                    }
+
                     await ExecuteAsync(command, state);
-                }
-                catch(Exception ex)
-                {
-                    var oldColor = Console.ForegroundColor;
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine(ex.GetBaseException().Message);
-                    Console.ForegroundColor = oldColor;
-                }
 
-                Console.WriteLine();
+                    Console.WriteLine();
+                }
+            }
+            else
+            {
+                await ExecuteAsync(null, state);
             }
         }
-
+        
         async static Task ExecuteAsync(string command, State state)
         {
             var commandExecutor = new CommandExecutor(command);
 
-            await commandExecutor.ExecuteAsync(new CommandRoot(state));
+            try
+            {
+                await commandExecutor.ExecuteAsync(new CommandRoot(state));
+            }
+            catch(Exception ex)
+            {
+                var oldColor = Console.ForegroundColor;
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(ex.GetBaseException().Message);
+                Console.ForegroundColor = oldColor;
+            }
         }
     }
 }

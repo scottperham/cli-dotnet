@@ -5,6 +5,18 @@
     <TargetFramework>netcoreapp3.0</TargetFramework>
     <ApplicationIcon />
     <StartupObject />
+    <Authors>Scott Perham</Authors>
+    <PackageLicenseFile>LICENSE-2.0.txt</PackageLicenseFile>
+    <RepositoryUrl></RepositoryUrl>
+    <Company />
+    <PackageProjectUrl>https://github.com/scottperham/cli-dotnet</PackageProjectUrl>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\..\Desktop\LICENSE-2.0.txt">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
 
 </Project>

@@ -11,10 +11,18 @@ namespace cli_dotnet
         private readonly CommandParser _parser;
         private readonly CommandExecutorOptions _options;
 
-        public CommandExecutor(string command, CommandExecutorOptions executorOptions = null)
+        public CommandExecutor(string command = null, CommandExecutorOptions executorOptions = null)
         {
-            _parser = new CommandParser(command);
+            _parser = new CommandParser(command ?? GetCommandLine());
             _options = executorOptions ?? new CommandExecutorOptions();
+        }
+
+        static string GetCommandLine()
+        {
+            var exe = Environment.GetCommandLineArgs()[0];
+            var rawCmd = Environment.CommandLine;
+
+            return rawCmd.Remove(rawCmd.IndexOf(exe), exe.Length).TrimStart('"').Trim();
         }
 
         async public Task ExecuteAsync<T>(T rootCommand)
