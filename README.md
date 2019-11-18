@@ -28,7 +28,7 @@ Setup Program.cs
 async static Task Main(string[] args)
 {
     try {
-        await new CommandExecutor().ExecuteAsync(new CommandRoot());
+        await Cli.ExecuteAsync(new CommandRoot());
     }
     catch {
         Console.WriteLine("ERROR");
