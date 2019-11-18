@@ -10,11 +10,16 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Semantic Release Action
+      id: semantic
       uses: codfish/semantic-release-action@v1
     - name: Setup .NET Core
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 3.0.100
-    - name: Build with dotnet
+    - name: Build
       run: dotnet build --configuration Release
+    - name: Test
+      run: dotnet test
+    - name: Pack
+      run: dotnet pack /p:version=${{steps.semantic.outputs.release-version}}
     
