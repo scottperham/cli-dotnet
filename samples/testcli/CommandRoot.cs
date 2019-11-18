@@ -14,7 +14,7 @@ namespace testcli
             _state = state;
         }
 
-        [Verb]
+        [Verb("user")]
         public UserActions UserAction { get; }
 
         [Command(helpText:"Logs in a user")]

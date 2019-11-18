@@ -1,28 +1,25 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 
 namespace cli_dotnet
 {
     public class CommandExecutor
     {
-        private readonly CommandParser _parser;
-        private readonly CommandExecutorOptions _options;
+        private readonly ICommandParser _parser;
+        private readonly ICommandExecutorOptions _options;
+        private readonly IAttributeDecorator _attributeDecorator;
+        private readonly IValueConverter _valueConverter;
+        private readonly ICommandHelper _commandHelper;
 
-        public CommandExecutor(string command = null, CommandExecutorOptions executorOptions = null)
+        public CommandExecutor(ICommandParser parser, ICommandExecutorOptions executorOptions, IAttributeDecorator attributeDecorator, IValueConverter valueConverter, ICommandHelper commandHelper)
         {
-            _parser = new CommandParser(command ?? GetCommandLine());
-            _options = executorOptions ?? new CommandExecutorOptions();
-        }
-
-        static string GetCommandLine()
-        {
-            var exe = Environment.GetCommandLineArgs()[0];
-            var rawCmd = Environment.CommandLine;
-
-            return rawCmd.Remove(rawCmd.IndexOf(exe), exe.Length).TrimStart('"').Trim();
+            _parser = parser;
+            _options = executorOptions;
+            _attributeDecorator = attributeDecorator;
+            _valueConverter = valueConverter;
+            _commandHelper = commandHelper;
         }
 
         async public Task ExecuteAsync<T>(T rootCommand)
@@ -33,7 +30,7 @@ namespace cli_dotnet
                 Instance = rootCommand
             };
 
-            Decorate(verbAtt);
+            _attributeDecorator.Decorate(verbAtt);
 
             var commandParts = _parser.Parse().GetEnumerator();
 
@@ -47,11 +44,11 @@ namespace cli_dotnet
 
                 if (bce.Command != null)
                 {
-                    CommandHelper.WriteCommandHelp(bce.Command, _options);
+                    _commandHelper.WriteCommandHelp(bce.Command, _options);
                 }
                 else
                 {
-                    CommandHelper.WriteVerbHelp(bce.Verb, _options);
+                    _commandHelper.WriteVerbHelp(bce.Verb, _options);
                 }
             }
         }
@@ -67,7 +64,7 @@ namespace cli_dotnet
             {
                 var key = _parser.GetString(commandParts.Current.Key);
 
-                if (CommandHelper.TryShowHelp(commandParts.Current, verb, key, _options))
+                if (_commandHelper.TryShowHelp(commandParts.Current, verb, key, _options))
                 {
                     return;
                 }
@@ -105,7 +102,7 @@ namespace cli_dotnet
 
                 if (commandParts.Current.IsArgument)
                 {
-                    if (CommandHelper.TryShowHelp(commandParts.Current, command, key, _options))
+                    if (_commandHelper.TryShowHelp(commandParts.Current, command, key, _options))
                     {
                         return;
                     }
@@ -117,7 +114,7 @@ namespace cli_dotnet
 
                     var value = _parser.GetString(commandParts.Current.Value);
 
-                    argValue = GetValue(value, option.Parameter, key);
+                    argValue = _valueConverter.GetValue(value, option.Parameter, key);
                     argPos = option.Parameter.Position;
                 }
                 else
@@ -129,7 +126,7 @@ namespace cli_dotnet
                         throw new BadCommandException(command, $"Too many values");
                     }
 
-                    argValue = GetValue(key, parameter, key);
+                    argValue = _valueConverter.GetValue(key, parameter, key);
                     argPos = parameter.Position;
                 }
 
@@ -140,7 +137,7 @@ namespace cli_dotnet
             {
                 if (!parameters.ContainsKey(parameter.Position))
                 {
-                    parameters.Add(parameter.Position, parameter.HasDefaultValue ? parameter.DefaultValue : Activator.CreateInstance(parameter.ParameterType));
+                    parameters.Add(parameter.Position, parameter.HasDefaultValue ? parameter.DefaultValue : _valueConverter.CreateDefaultValue(parameter.ParameterType));
                 }
             }
 
@@ -152,81 +149,6 @@ namespace cli_dotnet
             }
 
             return;
-        }
-
-        object GetValue(string value, ParameterInfo parameter, string name)
-        {
-            var type = parameter.ParameterType;
-
-            if (type == typeof(bool))
-            {
-                return true;
-            }
-
-            if (type.HasElementType)
-            {
-                type = type.GetElementType();
-            }
-
-            try
-            {
-                return Convert.ChangeType(value, Type.GetTypeCode(type));
-            }
-            catch
-            {
-                throw new BadCommandException(parameter.ParameterType, $"Invalid value fro {name}");
-            }
-        }
-
-        private void Decorate(VerbAttribute parentVerbAtt)
-        {
-            foreach (var member in parentVerbAtt.Instance.GetType().GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly | BindingFlags.GetProperty | BindingFlags.InvokeMethod))
-            {
-                if (member is PropertyInfo property && property.TryGetCustomAttribute<VerbAttribute>(out var childVerbAtt))
-                {
-                    childVerbAtt.Property = property;
-                    childVerbAtt.ParentVerb = parentVerbAtt;
-                    childVerbAtt.Instance = property.GetValue(parentVerbAtt.Instance);
-                    Decorate(childVerbAtt);
-                    parentVerbAtt.Verbs[childVerbAtt.GetName()] = childVerbAtt;
-                }
-                else if (member is MethodInfo method && method.TryGetCustomAttribute<CommandAttribute>(out var commandAtt))
-                {
-                    commandAtt.ParentVerb = parentVerbAtt;
-                    commandAtt.Method = method;
-                    Decorate(commandAtt);
-                    parentVerbAtt.Commands[commandAtt.GetName()] = commandAtt;
-                }
-            }
-        }
-
-        private void Decorate(CommandAttribute commandAtt)
-        {
-            foreach (var parameter in commandAtt.Method.GetParameters())
-            {
-                if (parameter.TryGetCustomAttribute<ValueAttribute>(out var valueAtt))
-                {
-                    valueAtt.Parameter = parameter;
-                    commandAtt.Values.Add(valueAtt);
-
-                    continue;
-                }
-
-                if (parameter.TryGetCustomAttribute<OptionAttribute>(out var optAtt))
-                {
-                    if (optAtt.ShortForm != '\0')
-                    {
-                        commandAtt.Options[optAtt.ShortForm.ToString()] = optAtt;
-                    }
-                }
-                else
-                {
-                    optAtt = new OptionAttribute();
-                }
-
-                optAtt.Parameter = parameter;
-                commandAtt.Options[optAtt.GetName()] = optAtt;
-            }
         }
     }
 }

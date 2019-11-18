@@ -12,7 +12,6 @@ namespace testcli
 
             if (args.Length == 0)
             {
-
                 while (true)
                 {
                     Console.Write($"{state.CurrentContext?.Username ?? "root"}> ");
@@ -42,11 +41,9 @@ namespace testcli
         
         async static Task ExecuteAsync(string command, State state)
         {
-            var commandExecutor = new CommandExecutor(command);
-
             try
             {
-                await commandExecutor.ExecuteAsync(new CommandRoot(state));
+                await Cli.ExecuteAsync(new CommandRoot(state), command);
             }
             catch(Exception ex)
             {

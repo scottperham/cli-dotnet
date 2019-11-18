@@ -1,8 +1,10 @@
 ﻿namespace cli_dotnet
 {
-    public class CommandExecutorOptions
+    public class CommandExecutorOptions : ICommandExecutorOptions
     {
-        public char HelpShortForm { get; set; } = 'h';
-        public string HelpLongForm { get; set; } = "help";
+        public char HelpShortForm { get; } = 'h';
+        public string HelpLongForm { get; } = "help";
+
+        public static ICommandExecutorOptions Default => new CommandExecutorOptions();
     }
 }

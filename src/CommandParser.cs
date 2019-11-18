@@ -4,95 +4,113 @@ using System.Linq;
 
 namespace cli_dotnet
 {
-    public class CommandParser
+    public class CommandParser : ICommandParser, ICommandParserImplementation
     {
-        readonly string _command;
-        int _position = -1;
+        readonly ICommandParserImplementation _impl;
 
-        public CommandParser(string command)
+        public CommandParser(string command, ICommandParserImplementation impl = null)
         {
-            _command = command;
+            command = command ?? throw new ArgumentNullException(nameof(command));
+
+            _impl = impl ?? this;
+
+            _impl.Position = -1;
+            _impl.Command = command;
         }
 
-        public string GetString(StringReference reference)
-        {
-            return _command.Substring(reference.Start, reference.Length);
-        }
+        int ICommandParserImplementation.Position { get; set; }
+        string ICommandParserImplementation.Command{ get; set; }
 
-        char Peek()
+        string ICommandParser.GetString(StringReference reference)
         {
-            return _position >= _command.Length - 1 ? '\0' : _command[_position + 1];
-        }
-
-        void Consume()
-        {
-            _position = Math.Min(_position + 1, _command.Length);
-        }
-
-        bool ConsumeIf(char ch)
-        {
-            if (Peek() == ch)
+            if (reference.Start < 0 || reference.Start + reference.Length > _impl.Command.Length)
             {
-                ++_position;
+                throw new ArgumentOutOfRangeException(nameof(reference));
+            }
+
+            return _impl.Command.Substring(reference.Start, reference.Length);
+        }
+
+        char ICommandParserImplementation.Peek()
+        {
+            return _impl.Position >= _impl.Command.Length - 1 ? '\0' : _impl.Command[_impl.Position + 1];
+        }
+
+        void ICommandParserImplementation.Consume()
+        {
+            _impl.Position = Math.Min(_impl.Position + 1, _impl.Command.Length);
+        }
+
+        bool ICommandParserImplementation.ConsumeIf(char ch)
+        {
+            if (_impl.Peek() == ch)
+            {
+                ++_impl.Position;
                 return true;
             }
 
             return false;
         }
 
-        StringReference ScanTo(char ch, char escape = '\0', bool consumeFinal = true, params char[] stopIf)
+        StringReference ICommandParserImplementation.ScanToAny(params char[] scanTo)
         {
-            var start = 0;
-            var end = 0;
-            var first = true;
-            var prev = '\0';
-            char next;
-
-            while ((next = Peek()) != '\0')
+            int start = -1;
+            char ch;
+            while ((ch = _impl.Peek()) != '\0')
             {
-                if ((next == ch && (escape == '\0' || escape != prev)) || stopIf.Contains(next))
+                if (scanTo.Contains(ch))
                 {
-                    if (consumeFinal)
-                    {
-                        Consume();
-                    }
-                    end = _position + (consumeFinal ? 0 : 1);
                     break;
                 }
 
-                Consume();
+                _impl.Consume();
 
-                if (first)
+                if (start == -1)
                 {
-                    start = _position;
-                    first = false;
+                    start = _impl.Position;
+                }
+            }
+
+            return new StringReference(start, _impl.Position + 1 - start);
+        }
+
+        StringReference ICommandParserImplementation.ScanTo(char ch, char escape = '\0')
+        {
+            char next;
+            char prev = '\0';
+            var start = -1;
+
+            while((next = _impl.Peek()) != '\0')
+            {
+                if (next == ch && (escape == '\0' || escape != prev))
+                {
+                    break;
                 }
 
                 prev = next;
-            }
-            
-            if (!first && end == 0)
-            {
-                if (consumeFinal)
+
+                _impl.Consume();
+
+                if (start == -1)
                 {
-                    Consume();
+                    start = _impl.Position;
                 }
-                end = _position + (consumeFinal ? 0 : 1);
             }
 
-            return new StringReference
-            {
-                Start = start,
-                Length = end - start
-            };
+            return new StringReference(start, _impl.Position + 1 - start);
         }
 
         public IEnumerable<CommandPart> Parse()
         {
-            while (TryGetCommandPart(out var commandPart))
+            while (_impl.TryGetCommandPart(out var commandPart))
             {
                 if (commandPart.IsShortForm)
                 {
+                    if (commandPart.Key.Length > 1 && !commandPart.Value.IsEmpty())
+                    {
+                        throw new BadCommandException("Cannot assign value to multi short form");
+                    }
+
                     for (var i = 0; i < commandPart.Key.Length; i++)
                     {
                         yield return new CommandPart
@@ -115,88 +133,129 @@ namespace cli_dotnet
             }
         }
 
-        bool TryGetCommandPart(out CommandPart commandPart)
+        void ICommandParserImplementation.ConsumeWhitespace()
         {
-            var longForm = false;
-            var consumeLast = false;
-
-            bool isArg;
-            if (isArg = ConsumeIf('-'))
+            char ch;
+            while ((ch = _impl.Peek()) != '\0')
             {
-                longForm = ConsumeIf('-');
+                if (char.IsWhiteSpace(ch))
+                {
+                    _impl.Consume();
+                    continue;
+                }
+
+                break;
+            }
+        }
+
+        CommandPart ICommandParserImplementation.GetLongFormArgument()
+        {
+            //Assume no leading whitepace
+
+            var key = _impl.ScanToAny('=', ' ');
+            StringReference value = default;    
+
+            if (_impl.Peek() == '=')
+            {
+                _impl.Consume();
+
+                value = _impl.GetValueReference(true);
             }
 
-            StringReference value = default;
-            StringReference key;
-
-            if (isArg)
+            return new CommandPart
             {
-                consumeLast = true;
+                IsArgument = true,
+                Key = key,
+                Value = value
+            };
+        }
 
-                key = ScanTo(longForm ? '=' : ' ', '\0', false, ' ', '\0');
+        CommandPart ICommandParserImplementation.GetShortFormArgument()
+        {
+            //Assume no leading whitespace
 
-                if (longForm || (!longForm && key.Length == 1))
+            var key = _impl.GetValueReference(false);
+            StringReference value = default;
+
+            if (key.Length == 1) // might have value
+            {
+                //Consume space
+                _impl.ConsumeWhitespace();
+
+                var ch = _impl.Peek();
+
+                if (ch != '-' && ch != '\0')
                 {
-                    var ch = Peek();
+                    value = _impl.GetValueReference(true);
+                }
+            }
 
-                    if ((longForm && ch == '=') || (!longForm && ch == ' '))
-                    {
-                        Consume();
+            return new CommandPart
+            {
+                IsArgument = true,
+                IsShortForm = true,
+                Key = key,
+                Value = value
+            };
+        }
 
-                        consumeLast = false;
+        CommandPart ICommandParserImplementation.GetValue()
+        {
+            return new CommandPart
+            {
+                Key = _impl.GetValueReference(true)
+            };
+        }
 
-                        ch = Peek();
+        bool ICommandParserImplementation.TryGetCommandPart(out CommandPart commandPart)
+        {
+            commandPart = default;
 
-                        if (longForm || ch != '-')
-                        {
-                            if (ch == '"' || ch == '\'')
-                            {
-                                Consume();
+            _impl.ConsumeWhitespace();
 
-                                value = ScanTo(ch, '\\');
+            if (_impl.Peek() == '\0')
+            {
+                return false;
+            }
 
-                                ConsumeIf(' ');
-                            }
-                            else
-                            {
-                                value = ScanTo(' ');
-                            }
-                        }
-                    }
+            if (_impl.ConsumeIf('-'))
+            {
+                if (_impl.ConsumeIf('-'))
+                {
+                    commandPart = _impl.GetLongFormArgument();
+                }
+                else
+                {
+                    commandPart = _impl.GetShortFormArgument();
                 }
             }
             else
             {
-                var ch = Peek();
-
-                if (ch == '"' || ch == '\'')
-                {
-                    Consume();
-
-                    key = ScanTo(ch, '\\');
-
-                    ConsumeIf(' ');
-                }
-                else
-                {
-                    key = ScanTo(' ');
-                }
+                commandPart = _impl.GetValue();
             }
 
-            if (consumeLast)
+            return true;
+        }
+
+        StringReference ICommandParserImplementation.GetValueReference(bool allowQuotes)
+        {
+            StringReference value;
+            var ch = _impl.Peek();
+
+            if (allowQuotes && (ch == '"' || ch == '\''))
             {
-                Consume();
+                _impl.Consume();
+
+                value = _impl.ScanTo(ch, '\\');
+
+                _impl.Consume();
+            }
+            else
+            {
+                value = _impl.ScanTo(' ');
             }
 
-            commandPart = new CommandPart
-            {
-                IsArgument = isArg,
-                IsShortForm = isArg && !longForm,
-                Key = key,
-                Value = value
-            };
-
-            return !commandPart.Key.IsEmpty();
+            return value;
         }
     }
 }

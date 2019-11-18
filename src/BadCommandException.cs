@@ -4,25 +4,24 @@ namespace cli_dotnet
 {
     public class BadCommandException : Exception
     { 
-        public BadCommandException(Type expectedType, string value)
-        {
-            ExpectedType = expectedType;
-            BadCommand = value;
-        }
+        public BadCommandException(string exception)
+            : base(exception)
+        { }
 
-        public BadCommandException(VerbAttribute verb, string badCommand)
+        public BadCommandException(VerbAttribute verb, string badVerb)
+            : base($"Unknown verb {badVerb}")
         {
             Verb = verb;
-            BadCommand = badCommand;
+            BadCommand = badVerb;
         }
 
         public BadCommandException(CommandAttribute command, string badCommand)
+            : base($"Malformed or missing command {badCommand}")
         {
             Command = command;
             BadCommand = badCommand;
         }
 
-        public Type ExpectedType { get; }
         public VerbAttribute Verb { get; }
         public CommandAttribute Command { get; }
         public string BadCommand { get; }

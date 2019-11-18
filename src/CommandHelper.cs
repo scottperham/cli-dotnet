@@ -5,35 +5,42 @@ using System.Reflection;
 
 namespace cli_dotnet
 {
-    public class CommandHelper
+    public class ConsoleCommandHelper : ICommandHelper
     {
-        public static bool TryShowHelp(CommandPart commandPart, CommandAttribute command, string key, CommandExecutorOptions options)
+        private readonly ICommandHelper _commandHelper;
+
+        public ConsoleCommandHelper(ICommandHelper commandHelper = null)
+        {
+            _commandHelper = commandHelper = this;
+        }
+
+        bool ICommandHelper.TryShowHelp(CommandPart commandPart, CommandAttribute command, string key, ICommandExecutorOptions options)
         {
             if ((commandPart.IsShortForm && key[0] == options.HelpShortForm) || (!commandPart.IsShortForm && key.Equals(options.HelpLongForm, StringComparison.OrdinalIgnoreCase)))
             {
-                WriteCommandHelp(command, options);
+                _commandHelper.WriteCommandHelp(command, options);
                 return true;
             }
 
             return false;
         }
 
-        public static bool TryShowHelp(CommandPart commandPart, VerbAttribute verb, string key, CommandExecutorOptions options)
+        bool ICommandHelper.TryShowHelp(CommandPart commandPart, VerbAttribute verb, string key, ICommandExecutorOptions options)
         {
             if ((commandPart.IsShortForm && key[0] == options.HelpShortForm) || (!commandPart.IsShortForm && key.Equals(options.HelpLongForm, StringComparison.OrdinalIgnoreCase)))
             {
-                WriteVerbHelp(verb, options);
+                _commandHelper.WriteVerbHelp(verb, options);
                 return true;
             }
 
             return false;
         }
 
-        public static void WriteVerbHelp(VerbAttribute verb, CommandExecutorOptions options)
+        void ICommandHelper.WriteVerbHelp(VerbAttribute verb, ICommandExecutorOptions options)
         {
             var sortedDictionary = new SortedDictionary<string, string>();
 
-            GetVerbHelp(verb, "", sortedDictionary);
+            _commandHelper.GetVerbHelp(verb, "", sortedDictionary);
 
             if (verb.IsRoot)
             {
@@ -55,7 +62,7 @@ namespace cli_dotnet
             Console.WriteLine($"For help with command syntax, type `<command> --{options.HelpLongForm}` or `<command> -{options.HelpShortForm}`");
         }
 
-        public static void WriteCommandHelp(CommandAttribute command, CommandExecutorOptions options)
+        void ICommandHelper.WriteCommandHelp(CommandAttribute command, ICommandExecutorOptions options)
         {
             Console.WriteLine();
             Console.WriteLine("Command Syntax:");
@@ -123,11 +130,11 @@ namespace cli_dotnet
             Console.WriteLine();
         }
 
-        static void GetVerbHelp(VerbAttribute verb, string prefix, SortedDictionary<string, string> help)
+        void ICommandHelper.GetVerbHelp(VerbAttribute verb, string prefix, SortedDictionary<string, string> help)
         {
             foreach (var innerVerb in verb.Verbs.Values)
             {
-                GetVerbHelp(innerVerb, $"{prefix} {innerVerb.GetName()}", help);
+                _commandHelper.GetVerbHelp(innerVerb, $"{prefix} {innerVerb.GetName()}", help);
             }
 
             foreach (var command in verb.Commands)
