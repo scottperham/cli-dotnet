@@ -2,8 +2,6 @@ name: .NET Core
 
 on: [push]
 
-GITHUB_TOKEN
-
 jobs:
   build:
 
