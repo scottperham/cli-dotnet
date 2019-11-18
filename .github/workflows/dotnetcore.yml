@@ -9,9 +9,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
-    - name: Semantic Release Action
+    - name: Semantic Release
+      uses: cycjimmy/semantic-release-action@v2
       id: semantic
-      uses: codfish/semantic-release-action@v1
+      with:
+        branch: scottperham-actions-1
     - name: Setup .NET Core
       uses: actions/setup-dotnet@v1
       with:
@@ -21,5 +23,5 @@ jobs:
     - name: Test
       run: dotnet test
     - name: Pack
-      run: dotnet pack /p:version=${{steps.semantic.outputs.release-version}}
+      run: dotnet pack /p:version=${{steps.semantic.outputs.new_release_version}}
     
