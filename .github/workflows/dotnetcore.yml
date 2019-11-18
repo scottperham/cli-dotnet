@@ -2,6 +2,8 @@ name: .NET Core
 
 on: [push]
 
+GITHUB_TOKEN
+
 jobs:
   build:
 
@@ -12,6 +14,8 @@ jobs:
     - name: Semantic Release
       uses: cycjimmy/semantic-release-action@v2
       id: semantic
+      env:
+        GITHUB_TOKEN: ${{ secrets.PUSH_TOKEN }}
       with:
         branch: scottperham-actions-1
     - name: Setup .NET Core
@@ -23,5 +27,5 @@ jobs:
     - name: Test
       run: dotnet test
     - name: Pack
-      run: dotnet pack /p:version=${{steps.semantic.outputs.new_release_version}}
+      run: dotnet pack /p:version=${{ steps.semantic.outputs.new_release_version }}
     
