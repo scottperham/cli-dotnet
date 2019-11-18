@@ -24,25 +24,6 @@ namespace cli_dotnet.test.unit
             commandParts.Should().BeEmpty();
         }
 
-        static CommandPart CP(bool isArg = false, bool isShortForm = false, int keyStart = 0, int keyLen = 0, int valStart = 0, int valLen = 0)
-        {
-            return new CommandPart
-            {
-                IsArgument = isArg,
-                IsShortForm = isShortForm,
-                Key = new StringReference
-                {
-                    Start = keyStart,
-                    Length = keyLen
-                },
-                Value = new StringReference
-                {
-                    Start = valStart,
-                    Length = valLen
-                }
-            };
-        }
-
         public struct TestCommandPart
         {
             public bool IsLongForm;
