@@ -5,6 +5,13 @@ namespace cli_dotnet
 {
     public static class Cli
     {
+        /// <summary>
+        /// Parses and executes a command.
+        /// </summary>
+        /// <param name="rootCommand">The object containing the first <see cref="VerbAttribute"/>s and <see cref="CommandAttribute"/>s.</param>
+        /// <param name="command">Optional command string, if this is left null, the process arguments will be used instead.</param>
+        /// <param name="commandExecutorOptions">Command executor options, such as the short form value for a help argument.</param>
+        /// <returns></returns>
         public static Task ExecuteAsync<T>(T rootCommand, string command = null, ICommandExecutorOptions commandExecutorOptions = null)
         {
             var parser = new CommandParser(command ?? GetCommandLine());
