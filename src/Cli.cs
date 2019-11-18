@@ -9,7 +9,8 @@ namespace cli_dotnet
         {
             var parser = new CommandParser(command ?? GetCommandLine());
             var options = commandExecutorOptions ?? CommandExecutorOptions.Default;
-            var attributeDecorator = new AttributeDecorator();
+            var attributeHelper = new TypeHelper();
+            var attributeDecorator = new AttributeDecorator(attributeHelper);
             var valueConverter = new ValueConverter();
             var commandHelper = new ConsoleCommandHelper();
             var commandExecutor = new CommandExecutor(parser, options, attributeDecorator, valueConverter, commandHelper);

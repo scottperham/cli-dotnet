@@ -5,21 +5,23 @@ using System.Threading.Tasks;
 
 namespace cli_dotnet
 {
-    public class CommandExecutor
+    public class CommandExecutor : ICommandExecutorImpl
     {
         private readonly ICommandParser _parser;
         private readonly ICommandExecutorOptions _options;
         private readonly IAttributeDecorator _attributeDecorator;
         private readonly IValueConverter _valueConverter;
         private readonly ICommandHelper _commandHelper;
+        private readonly ICommandExecutorImpl _impl;
 
-        public CommandExecutor(ICommandParser parser, ICommandExecutorOptions executorOptions, IAttributeDecorator attributeDecorator, IValueConverter valueConverter, ICommandHelper commandHelper)
+        public CommandExecutor(ICommandParser parser, ICommandExecutorOptions executorOptions, IAttributeDecorator attributeDecorator, IValueConverter valueConverter, ICommandHelper commandHelper, ICommandExecutorImpl impl = null)
         {
             _parser = parser;
             _options = executorOptions;
             _attributeDecorator = attributeDecorator;
             _valueConverter = valueConverter;
             _commandHelper = commandHelper;
+            _impl = impl ?? this;
         }
 
         async public Task ExecuteAsync<T>(T rootCommand)
@@ -36,7 +38,7 @@ namespace cli_dotnet
 
             try
             {
-                await ExecuteInternalAsync(verbAtt, commandParts);
+                await _impl.ExecuteInternalAsync(verbAtt, commandParts);
             }
             catch(BadCommandException bce)
             {
@@ -53,7 +55,7 @@ namespace cli_dotnet
             }
         }
 
-        async private Task ExecuteInternalAsync(VerbAttribute verb, IEnumerator<CommandPart> commandParts)
+        async Task ICommandExecutorImpl.ExecuteInternalAsync(VerbAttribute verb, IEnumerator<CommandPart> commandParts)
         {
             if (!commandParts.MoveNext())
             {
@@ -76,21 +78,21 @@ namespace cli_dotnet
 
             if (verb.Verbs.TryGetValue(name, out var nextVerb))
             {
-                await ExecuteInternalAsync(nextVerb, commandParts);
+                await _impl.ExecuteInternalAsync(nextVerb, commandParts);
 
                 return;
             }
 
             if (verb.Commands.TryGetValue(name, out var nextCommand))
             {
-                await ExecuteCommandAsync(nextCommand, commandParts);
+                await _impl.ExecuteCommandAsync(nextCommand, commandParts);
                 return;
             }
 
             throw new BadCommandException(verb, name);
         }
 
-        async private Task ExecuteCommandAsync(CommandAttribute command, IEnumerator<CommandPart> commandParts)
+        async Task ICommandExecutorImpl.ExecuteCommandAsync(CommandAttribute command, IEnumerator<CommandPart> commandParts)
         {
             var parameters = new SortedList<int, object>();
 

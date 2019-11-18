@@ -1,6 +1,5 @@
 ﻿namespace cli_dotnet
 {
-
     public class OptionAttribute : ParameterAttribute
     {
         readonly string _longForm;

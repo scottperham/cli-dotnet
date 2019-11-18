@@ -1,7 +1,4 @@
-﻿using System;
-using System.Reflection;
-
-namespace cli_dotnet
+﻿namespace cli_dotnet
 {
     public class ValueAttribute : ParameterAttribute
     {

@@ -12,6 +12,8 @@ namespace cli_dotnet
         {
             command = command ?? throw new ArgumentNullException(nameof(command));
 
+            //Used for unit testing, the default behaviour should be to use
+            //_this_ as the implementation
             _impl = impl ?? this;
 
             _impl.Position = -1;

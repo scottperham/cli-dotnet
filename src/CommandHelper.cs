@@ -11,7 +11,7 @@ namespace cli_dotnet
 
         public ConsoleCommandHelper(ICommandHelper commandHelper = null)
         {
-            _commandHelper = commandHelper = this;
+            _commandHelper ??= this;
         }
 
         bool ICommandHelper.TryShowHelp(CommandPart commandPart, CommandAttribute command, string key, ICommandExecutorOptions options)

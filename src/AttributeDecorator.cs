@@ -4,18 +4,20 @@ namespace cli_dotnet
 {
     public class AttributeDecorator : IAttributeDecorator
     {
+        private readonly ITypeHelper _typeHelper;
         private readonly IAttributeDecorator _attributeDecorator;
 
-        public AttributeDecorator(IAttributeDecorator attributeDecorator = null)
+        public AttributeDecorator(ITypeHelper typeHelper, IAttributeDecorator attributeDecorator = null)
         {
+            _typeHelper = typeHelper;
             _attributeDecorator = attributeDecorator ?? this;
         }
 
         void IAttributeDecorator.Decorate(VerbAttribute parentVerbAtt)
         {
-            foreach (var member in parentVerbAtt.Instance.GetType().GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly | BindingFlags.GetProperty | BindingFlags.InvokeMethod))
+            foreach (var member in _typeHelper.GetPropertiesAndMethods(parentVerbAtt.Instance))
             {
-                if (member is PropertyInfo property && property.TryGetCustomAttribute<VerbAttribute>(out var childVerbAtt))
+                if (member is PropertyInfo property && _typeHelper.TryGetVerbAttribute(property, out var childVerbAtt))
                 {
                     childVerbAtt.Property = property;
                     childVerbAtt.ParentVerb = parentVerbAtt;
@@ -23,7 +25,7 @@ namespace cli_dotnet
                     _attributeDecorator.Decorate(childVerbAtt);
                     parentVerbAtt.Verbs[childVerbAtt.GetName()] = childVerbAtt;
                 }
-                else if (member is MethodInfo method && method.TryGetCustomAttribute<CommandAttribute>(out var commandAtt))
+                else if (member is MethodInfo method && _typeHelper.TryGetCommandAttribute(method, out var commandAtt))
                 {
                     commandAtt.ParentVerb = parentVerbAtt;
                     commandAtt.Method = method;
@@ -37,7 +39,7 @@ namespace cli_dotnet
         {
             foreach (var parameter in commandAttribute.Method.GetParameters())
             {
-                if (parameter.TryGetCustomAttribute<ValueAttribute>(out var valueAtt))
+                if (_typeHelper.TryGetValueAttribute(parameter, out var valueAtt))
                 {
                     valueAtt.Parameter = parameter;
                     commandAttribute.Values.Add(valueAtt);
@@ -45,7 +47,7 @@ namespace cli_dotnet
                     continue;
                 }
 
-                if (parameter.TryGetCustomAttribute<OptionAttribute>(out var optAtt))
+                if (_typeHelper.TryGetOptionAttribute(parameter, out var optAtt))
                 {
                     if (optAtt.ShortForm != '\0')
                     {
