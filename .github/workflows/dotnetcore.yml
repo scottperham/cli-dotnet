@@ -10,7 +10,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Semantic Release
-      uses: codfish/semantic-release-action@master
+      uses: codfish/semantic-release-action@v1
       id: semantic
       env:
         GITHUB_TOKEN: ${{ secrets.PUSH_TOKEN }}
