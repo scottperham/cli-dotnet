@@ -122,6 +122,22 @@ public Task MyCmd([Value] int firstValue, [Option] bool flag, [Value] int second
 ...
 ```
 
+### Arrays
+
+If an option is of an array type, then it may be specified multiple times, or contain multiple values for a single option. For example:
+
+```C#
+public void MyCmd([Option('t')] string[] test) { }
+```
+can be called with: `mycmd -t value1 -t value2 -t value3` or `mycmd -t value1 value2 value3`
+
+If a value is of an array type, it will accept multiple "value" inputs. For example:
+
+```C#
+public void MyCmd([Value] string[] test) { }
+```
+can be called with: mycmd value1 value2 value3
+
 ### Help
 
 `--help` or `-h` can be used at any point in the command to display help for the current command or verb.
