@@ -138,6 +138,10 @@ public void MyCmd([Value] string[] test) { }
 ```
 can be called with: mycmd value1 value2 value3
 
+### Default values
+
+If any option of value is omitted, then it will be substited with the CLR default value for the type, with the exception of `string` which will be substituted by and empty string (`""`) and array types that will be an empty instance of the array (`new T[0]`).
+
 ### Help
 
 `--help` or `-h` can be used at any point in the command to display help for the current command or verb.
