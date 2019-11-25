@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace cli_dotnet
@@ -92,16 +93,50 @@ namespace cli_dotnet
             throw new BadCommandException(verb, name);
         }
 
+        bool ICommandExecutorImpl.TryAddToLastParameter(ParameterInfo lastParameter, ParameterInfo thisParameter, string value, SortedList<int, object> parameters)
+        {
+            object argValue;
+
+            if (lastParameter?.ParameterType.IsArray != true)
+            {
+                if (thisParameter != null)
+                {
+                    argValue = _valueConverter.GetValue(value, thisParameter.ParameterType);
+                    parameters.Add(thisParameter.Position, argValue);
+                }
+
+                return false;
+            }
+
+            Array existingArray;
+
+            if (parameters.TryGetValue(lastParameter.Position, out var existingArgValue))
+            {
+                existingArray = (Array)existingArgValue;
+            }
+            else
+            {
+                existingArray = Array.CreateInstance(lastParameter.ParameterType.GetElementType(), 0);
+            }
+
+            argValue = _valueConverter.GetValue(value, lastParameter.ParameterType.GetElementType());
+
+            var newArray = existingArray.ExtendAndAdd(argValue);
+            parameters.AddOrUpdate(lastParameter.Position, newArray);
+
+            return true;
+        }
+
         async Task ICommandExecutorImpl.ExecuteCommandAsync(CommandAttribute command, IEnumerator<CommandPart> commandParts)
         {
             var parameters = new SortedList<int, object>();
 
+            ParameterInfo lastParameter = null;
+
             while (commandParts.MoveNext())
             {
                 var key = _parser.GetString(commandParts.Current.Key);
-                object argValue;
-                int argPos;
-
+                
                 if (commandParts.Current.IsArgument)
                 {
                     if (_commandHelper.TryShowHelp(commandParts.Current, command, key, _options))
@@ -114,43 +149,54 @@ namespace cli_dotnet
                         throw new BadCommandException(command, $"Unknown option {key}");
                     }
 
-                    var value = _parser.GetString(commandParts.Current.Value);
+                    var valueString = _parser.GetString(commandParts.Current.Value);
 
-                    argValue = _valueConverter.GetValue(value, option.Parameter, key);
-                    argPos = option.Parameter.Position;
-                }
-                else
-                {
-                    var parameter = command.Values.Select(x => x.Parameter).FirstOrDefault(x => !parameters.ContainsKey(x.Position));
-
-                    if (parameter == null)
+                    if (!_impl.TryAddToLastParameter(lastParameter, option.Parameter, valueString, parameters))
                     {
-                        throw new BadCommandException(command, $"Too many values");
+                        lastParameter = option.Parameter;
                     }
 
-                    argValue = _valueConverter.GetValue(key, parameter, key);
-                    argPos = parameter.Position;
+                    continue;
                 }
 
-                parameters.Add(argPos, argValue);
+                if (_impl.TryAddToLastParameter(lastParameter, null, key, parameters))
+                {
+                    continue;
+                }
+
+                var parameter = command.Values.Select(x => x.Parameter).FirstOrDefault(x => !parameters.ContainsKey(x.Position));
+
+                lastParameter = parameter ?? throw new BadCommandException(command, $"Too many values");
+
+                parameters.Add(parameter.Position, _valueConverter.GetValue(key, parameter.ParameterType));
             }
 
-            foreach(var parameter in command.Method.GetParameters())
+            _impl.AddDefaultValues(command, parameters);
+
+            await _impl.ExecuteCommand(command, parameters);
+
+            return;
+        }
+
+        void ICommandExecutorImpl.AddDefaultValues(CommandAttribute command, SortedList<int, object> parameters)
+        {
+            foreach (var parameter in command.Method.GetParameters())
             {
                 if (!parameters.ContainsKey(parameter.Position))
                 {
                     parameters.Add(parameter.Position, parameter.HasDefaultValue ? parameter.DefaultValue : _valueConverter.CreateDefaultValue(parameter.ParameterType));
                 }
             }
+        }
 
+        async Task ICommandExecutorImpl.ExecuteCommand(CommandAttribute command, SortedList<int, object> parameters)
+        {
             var result = command.Method.Invoke(command.ParentVerb.Instance, parameters.Values.ToArray());
 
             if (result is Task t)
             {
                 await t;
             }
-
-            return;
         }
     }
 }

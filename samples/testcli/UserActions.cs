@@ -15,6 +15,19 @@ namespace testcli
             _state = state;
         }
 
+        [Command]
+        public Task Permissions([Value] string username, [Option('p')] string[] perms)
+        {
+            Console.WriteLine($"Setting permissions for {username}");
+
+            foreach(var perm in perms)
+            {
+                Console.WriteLine(perm);
+            }
+
+            return Task.CompletedTask;
+        }
+
         [Command(helpText:"Creates a new user")]
         public Task Create(
             [Value] string username, 
@@ -41,7 +54,8 @@ namespace testcli
         [Command(helpText:"Lists users")]
         public Task List(
             [Option('a', "all", "Include users who aren't allowed to login")]bool showAll,
-            [Option('d', "desc", "Sort users in decending order")]bool descending)
+            [Option('d', "desc", "Sort users in decending order")]bool descending,
+            [Option('s')] bool singleLine)
         {
             var users = _state.Users.Values.AsEnumerable();
 
@@ -54,6 +68,8 @@ namespace testcli
                 users = users.OrderBy(x => x.Username);
             }
 
+            var first = true;
+
             foreach(var user in users)
             {
                 if (!showAll && !user.CanLogin)
@@ -61,7 +77,14 @@ namespace testcli
                     continue;
                 }
 
-                Console.WriteLine(user.Username);
+                if (!first)
+                {
+                    Console.Write(singleLine ? ' ' : '\n');
+                }
+
+                Console.Write(user.Username);
+
+                first = false;
             }
 
             return Task.CompletedTask;
@@ -69,17 +92,24 @@ namespace testcli
 
         [Command(helpText:"Removes a user")]
         public Task Remove(
-            [Value] string username)
+            [Value] string[] username)
         {
-            if (_state.CurrentContext?.Username.Equals(username, StringComparison.OrdinalIgnoreCase) == true)
+            foreach (var user in username)
             {
-                throw new Exception("Unable to remove current user");
+                if (_state.CurrentContext?.Username.Equals(user, StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    throw new Exception("Unable to remove current user");
+                }
+
+                if (!_state.Users.Remove(user))
+                {
+                    Console.WriteLine($"Cannot find user {user}");
+                }
+                else
+                {
+                    Console.WriteLine($"User {user} removed");
+                }
             }
-
-            _state.Users.Remove(username);
-
-            Console.WriteLine("User removed");
-
             return Task.CompletedTask;
         }
     }

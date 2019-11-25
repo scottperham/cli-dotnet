@@ -35,6 +35,11 @@ namespace testcli
             }
             else
             {
+                state.Users.Add("test", new State.User { Username = "test", Password = "test" });
+                state.Users.Add("test2", new State.User { Username = "test2", Password = "test2" });
+                state.Users.Add("test3", new State.User { Username = "test3", Password = "test3" });
+                state.Users.Add("test4", new State.User { Username = "test4", Password = "test4" });
+
                 await ExecuteAsync(null, state);
             }
         }

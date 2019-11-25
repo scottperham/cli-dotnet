@@ -5,7 +5,7 @@ namespace cli_dotnet
 {
     public interface IValueConverter
     {
-        object GetValue(string value, ParameterInfo parameterInfo, string name);
+        object GetValue(string value, Type type);
         object CreateDefaultValue(Type type);
     }
 }

@@ -264,5 +264,116 @@ namespace cli_dotnet.test.unit
 
             act.Should().Throw<BadCommandException>();
         }
+
+        [Fact]
+        public void TryAddToLastParameter_WhenLastParameterNull_ReturnsFalse()
+        {
+            var sut = CreateSutImpl();
+
+            var result = sut.TryAddToLastParameter(null, new TestParameterInfo(), "hello", new SortedList<int, object>());
+
+            result.Should().BeFalse();
+        }
+
+        [Fact]
+        public void TryAddToLastParameter_WhenLastParameterNotArrayAndThisParameterNull_ReturnsFalse()
+        {
+            var list = new SortedList<int, object>();
+            var parameter = new TestParameterInfo("test", typeof(string));
+
+            var sut = CreateSutImpl();
+
+            var result = sut.TryAddToLastParameter(parameter, null, "hello", list);
+
+            result.Should().BeFalse();
+            list.Should().BeEmpty();
+        }
+
+        [Fact]
+        public void TryAddToLastParameter_WhenLastParameterNotArrayAndThisParameterNotNull_ReturnsFalse_AndSetsValue()
+        {
+            var list = new SortedList<int, object>();
+            var parameter = new TestParameterInfo("test", typeof(string));
+            var thisParameter = new TestParameterInfo("thisValue", typeof(int), 10);
+            var value = "42";
+            var actualValue = 42;
+
+            var valueConverter = Substitute.For<IValueConverter>();
+            valueConverter.GetValue(value, typeof(int)).Returns(actualValue);
+
+            var sut = CreateSutImpl(valueConverter: valueConverter);
+
+            var result = sut.TryAddToLastParameter(parameter, thisParameter, value, list);
+
+            result.Should().BeFalse();
+            list.Count.Should().Be(1);
+            list[10].Should().Be(actualValue);
+        }
+
+        [Fact]
+        public void TryAddToLastParameter_WhenLastParameterListEmpty_ReturnsTrue_AndSetsValue()
+        {
+            var value = "hello";
+            var position = 5;
+            var parameters = new SortedList<int, object>();
+
+            var parameter = new TestParameterInfo("test", typeof(string[]), position);
+
+            var valueConverter = Substitute.For<IValueConverter>();
+            valueConverter.GetValue(value, typeof(string)).Returns(value);
+
+            var sut = CreateSutImpl(valueConverter: valueConverter);
+
+            var result = sut.TryAddToLastParameter(parameter, null, value, parameters);
+
+            result.Should().BeTrue();
+            parameters.Count.Should().Be(1);
+            parameters[position].Should().BeEquivalentTo(new string[] { value });
+        }
+
+        [Fact]
+        public void TryAddToLastParameter_WhenLastParameterEmptyArray_ReturnsTrue_AndSetsValue()
+        {
+            var value = "hello";
+            var position = 5;
+            var parameters = new SortedList<int, object>();
+            parameters.Add(position, new string[0]);
+
+            var parameter = new TestParameterInfo("test", typeof(string[]), position);
+
+            var valueConverter = Substitute.For<IValueConverter>();
+            valueConverter.GetValue(value, typeof(string)).Returns(value);
+
+            var sut = CreateSutImpl(valueConverter: valueConverter);
+
+            var result = sut.TryAddToLastParameter(parameter, null, value, parameters);
+
+            result.Should().BeTrue();
+            parameters.Count.Should().Be(1);
+            parameters[position].Should().BeEquivalentTo(new string[] { value });
+        }
+
+        [Fact]
+        public void TryAddToLastParameter_WhenLastParameterNotEmptyArray_ReturnsTrue_AndSetsValue()
+        {
+            var value = "hello";
+            var existingValue = new[] { "test1", "test2" };
+            var position = 5;
+            var parameters = new SortedList<int, object>();
+            parameters.Add(position, existingValue);
+
+            var parameter = new TestParameterInfo("test", typeof(string[]), position);
+
+            var valueConverter = Substitute.For<IValueConverter>();
+            valueConverter.GetValue(value, typeof(string)).Returns(value);
+
+            var sut = CreateSutImpl(valueConverter: valueConverter);
+
+            var result = sut.TryAddToLastParameter(parameter, null, value, parameters);
+
+            result.Should().BeTrue();
+            parameters.Count.Should().Be(1);
+            parameters[position].Should().BeEquivalentTo(new string[] { existingValue[0], existingValue[1], value });
+        }
     }
 }
