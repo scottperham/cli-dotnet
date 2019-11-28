@@ -16,7 +16,7 @@ namespace testcli
         }
 
         [Command]
-        public Task Permissions([Value] string username, [Option('p')] string[] perms, [Option('o')] bool overwrite)
+        public Task Permissions([Value] string username, [Option('p')] string[] perms, [Option('o', noLongForm: true)] bool overwrite)
         {
             Console.WriteLine($"Setting permissions for {username}");
 

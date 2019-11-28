@@ -103,12 +103,12 @@ namespace cli_dotnet
 
             foreach (var option in command.Options)
             {
-                Console.Write("    ");
-
                 if (written.Contains(option.Value))
                 {
                     continue;
                 }
+
+                Console.Write("    ");
 
                 string name = "   ";
 
@@ -122,7 +122,14 @@ namespace cli_dotnet
                     name += " --" + option.Value.LongForm + (option.Value.Parameter.ParameterType == typeof(bool) ? "" : "=<value>");
                 }
 
-                Console.WriteLine(name.PadRight(30, ' ') + option.Value.HelpText);
+                var helpText = option.Value.HelpText;
+
+                if (option.Value.Parameter.ParameterType.IsArray)
+                {
+                    helpText = "(Array) " + helpText;
+                }
+
+                Console.WriteLine(name.PadRight(30, ' ') + helpText);
 
                 written.Add(option.Value);
             }

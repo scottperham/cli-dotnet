@@ -60,7 +60,11 @@ namespace cli_dotnet
                 }
 
                 optAtt.Parameter = parameter;
-                commandAttribute.Options[optAtt.GetName()] = optAtt;
+
+                if (optAtt.LongForm != null)
+                {
+                    commandAttribute.Options[optAtt.LongForm] = optAtt;
+                }
             }
         }
     }
