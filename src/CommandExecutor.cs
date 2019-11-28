@@ -93,18 +93,12 @@ namespace cli_dotnet
             throw new BadCommandException(verb, name);
         }
 
-        bool ICommandExecutorImpl.TryAddToLastParameter(ParameterInfo lastParameter, ParameterInfo thisParameter, string value, SortedList<int, object> parameters)
+        bool ICommandExecutorImpl.TryAddToLastParameter(ParameterInfo lastParameter, string value, SortedList<int, object> parameters)
         {
             object argValue;
 
             if (lastParameter?.ParameterType.IsArray != true)
             {
-                if (thisParameter != null)
-                {
-                    argValue = _valueConverter.GetValue(value, thisParameter.ParameterType);
-                    parameters.Add(thisParameter.Position, argValue);
-                }
-
                 return false;
             }
 
@@ -127,6 +121,54 @@ namespace cli_dotnet
             return true;
         }
 
+        ParameterInfo ICommandExecutorImpl.SetOptionParameter(string key, CommandPart commandPart, CommandAttribute command, SortedList<int, object> parameters)
+        {
+            if (!command.Options.TryGetValue(key, out var option))
+            {
+                throw new BadCommandException(command, $"Unknown option `{key}`");
+            }
+
+            var valueString = _parser.GetString(commandPart.Value);
+            var value = _valueConverter.GetValue(valueString, option.Parameter.ParameterType);
+
+            if (parameters.TryGetValue(option.Parameter.Position, out var existingValue))
+            {
+                if (!option.Parameter.ParameterType.IsArray)
+                {
+                    throw new BadCommandException(command, $"Option `{key}` specified too many times");
+                }
+
+                parameters[option.Parameter.Position] = ((Array)existingValue).ExtendAndAddArray((Array)value);
+            }
+            else
+            {
+                parameters.Add(option.Parameter.Position, value);
+            }
+
+            return option.Parameter;
+        }
+
+        ParameterInfo ICommandExecutorImpl.SetValueParameter(string key, CommandAttribute command, SortedList<int, object> parameters, ParameterInfo lastParameter)
+        {
+            if (_impl.TryAddToLastParameter(lastParameter, key, parameters))
+            {
+                return lastParameter;
+            }
+
+            var parameter = command.Values.Select(x => x.Parameter).FirstOrDefault(x => !parameters.ContainsKey(x.Position));
+
+            if (parameter == null)
+            {
+                throw new BadCommandException(command, $"Too many values");
+            }
+
+            var value = _valueConverter.GetValue(key, parameter.ParameterType);
+
+            parameters.Add(parameter.Position, value);
+
+            return parameter;
+        }
+
         async Task ICommandExecutorImpl.ExecuteCommandAsync(CommandAttribute command, IEnumerator<CommandPart> commandParts)
         {
             var parameters = new SortedList<int, object>();
@@ -136,44 +178,25 @@ namespace cli_dotnet
             while (commandParts.MoveNext())
             {
                 var key = _parser.GetString(commandParts.Current.Key);
-                
+
+                if (commandParts.Current.IsArgument && _commandHelper.TryShowHelp(commandParts.Current, command, key, _options))
+                {
+                    return;
+                }
+
                 if (commandParts.Current.IsArgument)
                 {
-                    if (_commandHelper.TryShowHelp(commandParts.Current, command, key, _options))
-                    {
-                        return;
-                    }
-
-                    if (!command.Options.TryGetValue(key, out var option))
-                    {
-                        throw new BadCommandException(command, $"Unknown option {key}");
-                    }
-
-                    var valueString = _parser.GetString(commandParts.Current.Value);
-
-                    if (!_impl.TryAddToLastParameter(lastParameter, option.Parameter, valueString, parameters))
-                    {
-                        lastParameter = option.Parameter;
-                    }
-
-                    continue;
+                    lastParameter = _impl.SetOptionParameter(key, commandParts.Current, command, parameters);
                 }
-
-                if (_impl.TryAddToLastParameter(lastParameter, null, key, parameters))
+                else
                 {
-                    continue;
+                    lastParameter = _impl.SetValueParameter(key, command, parameters, lastParameter);
                 }
-
-                var parameter = command.Values.Select(x => x.Parameter).FirstOrDefault(x => !parameters.ContainsKey(x.Position));
-
-                lastParameter = parameter ?? throw new BadCommandException(command, $"Too many values");
-
-                parameters.Add(parameter.Position, _valueConverter.GetValue(key, parameter.ParameterType));
             }
 
             _impl.AddDefaultValues(command, parameters);
 
-            await _impl.ExecuteCommand(command, parameters);
+            await _impl.ExecuteActualCommandAsync(command, parameters);
 
             return;
         }
@@ -189,7 +212,7 @@ namespace cli_dotnet
             }
         }
 
-        async Task ICommandExecutorImpl.ExecuteCommand(CommandAttribute command, SortedList<int, object> parameters)
+        async Task ICommandExecutorImpl.ExecuteActualCommandAsync(CommandAttribute command, SortedList<int, object> parameters)
         {
             var result = command.Method.Invoke(command.ParentVerb.Instance, parameters.Values.ToArray());
 

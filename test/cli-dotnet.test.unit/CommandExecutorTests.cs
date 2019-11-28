@@ -2,6 +2,8 @@
 using NSubstitute;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -270,44 +272,23 @@ namespace cli_dotnet.test.unit
         {
             var sut = CreateSutImpl();
 
-            var result = sut.TryAddToLastParameter(null, new TestParameterInfo(), "hello", new SortedList<int, object>());
+            var result = sut.TryAddToLastParameter(null, "hello", new SortedList<int, object>());
 
             result.Should().BeFalse();
         }
 
         [Fact]
-        public void TryAddToLastParameter_WhenLastParameterNotArrayAndThisParameterNull_ReturnsFalse()
+        public void TryAddToLastParameter_WhenLastParameterNotArray_ReturnsFalse()
         {
             var list = new SortedList<int, object>();
             var parameter = new TestParameterInfo("test", typeof(string));
 
             var sut = CreateSutImpl();
 
-            var result = sut.TryAddToLastParameter(parameter, null, "hello", list);
+            var result = sut.TryAddToLastParameter(parameter, "hello", list);
 
             result.Should().BeFalse();
             list.Should().BeEmpty();
-        }
-
-        [Fact]
-        public void TryAddToLastParameter_WhenLastParameterNotArrayAndThisParameterNotNull_ReturnsFalse_AndSetsValue()
-        {
-            var list = new SortedList<int, object>();
-            var parameter = new TestParameterInfo("test", typeof(string));
-            var thisParameter = new TestParameterInfo("thisValue", typeof(int), 10);
-            var value = "42";
-            var actualValue = 42;
-
-            var valueConverter = Substitute.For<IValueConverter>();
-            valueConverter.GetValue(value, typeof(int)).Returns(actualValue);
-
-            var sut = CreateSutImpl(valueConverter: valueConverter);
-
-            var result = sut.TryAddToLastParameter(parameter, thisParameter, value, list);
-
-            result.Should().BeFalse();
-            list.Count.Should().Be(1);
-            list[10].Should().Be(actualValue);
         }
 
         [Fact]
@@ -324,7 +305,7 @@ namespace cli_dotnet.test.unit
 
             var sut = CreateSutImpl(valueConverter: valueConverter);
 
-            var result = sut.TryAddToLastParameter(parameter, null, value, parameters);
+            var result = sut.TryAddToLastParameter(parameter, value, parameters);
 
             result.Should().BeTrue();
             parameters.Count.Should().Be(1);
@@ -346,7 +327,7 @@ namespace cli_dotnet.test.unit
 
             var sut = CreateSutImpl(valueConverter: valueConverter);
 
-            var result = sut.TryAddToLastParameter(parameter, null, value, parameters);
+            var result = sut.TryAddToLastParameter(parameter, value, parameters);
 
             result.Should().BeTrue();
             parameters.Count.Should().Be(1);
@@ -369,11 +350,227 @@ namespace cli_dotnet.test.unit
 
             var sut = CreateSutImpl(valueConverter: valueConverter);
 
-            var result = sut.TryAddToLastParameter(parameter, null, value, parameters);
+            var result = sut.TryAddToLastParameter(parameter, value, parameters);
 
             result.Should().BeTrue();
             parameters.Count.Should().Be(1);
             parameters[position].Should().BeEquivalentTo(new string[] { existingValue[0], existingValue[1], value });
+        }
+
+        [Fact]
+        async public Task ExecuteCommandAsync_CallsSetParameterForEachCommandPart()
+        {
+            var command = new CommandAttribute();
+            var commandParts = new List<CommandPart>(new[]
+            {
+                new CommandPart(),
+                new CommandPart(),
+                new CommandPart()
+            });
+
+            var key1 = "Hello";
+            var key2 = "World";
+            var key3 = "Peeps";
+
+            var impl = Substitute.For<ICommandExecutorImpl>();
+
+            var parser = Substitute.For<ICommandParser>();
+            parser.GetString(default).ReturnsForAnyArgs(key1, key2, key3);
+
+            var sut = CreateSutImpl(impl: impl, parser: parser);
+
+            await sut.ExecuteCommandAsync(command, commandParts.GetEnumerator());
+
+            impl.Received(1).SetValueParameter(key1, command, Arg.Any<SortedList<int, object>>(), Arg.Any<ParameterInfo>());
+            impl.Received(1).SetValueParameter(key2, command, Arg.Any<SortedList<int, object>>(), Arg.Any<ParameterInfo>());
+            impl.Received(1).SetValueParameter(key3, command, Arg.Any<SortedList<int, object>>(), Arg.Any<ParameterInfo>());
+        }
+
+        [Fact]
+        async public Task ExecuteCommandAsync_CallsAddDefaultValuesWithCommand()
+        {
+            var command = new CommandAttribute();
+            var commandParts = new List<CommandPart>();
+
+            var impl = Substitute.For<ICommandExecutorImpl>();
+
+            var sut = CreateSutImpl(impl: impl);
+
+            await sut.ExecuteCommandAsync(command, commandParts.GetEnumerator());
+
+            impl.ReceivedWithAnyArgs(1).AddDefaultValues(command, Arg.Any<SortedList<int, object>>());
+        }
+
+        [Fact]
+        async public Task ExecuteCommandAsync_ExecutesCommand()
+        {
+            var command = new CommandAttribute();
+            var commandParts = new List<CommandPart>();
+
+            var impl = Substitute.For<ICommandExecutorImpl>();
+
+            var sut = CreateSutImpl(impl: impl);
+
+            await sut.ExecuteCommandAsync(command, commandParts.GetEnumerator());
+
+            await impl.Received(1).ExecuteActualCommandAsync(command, Arg.Any<SortedList<int, object>>());
+        }
+
+        [Fact]
+        public void SetValueParameter_NoLastParameter_AddsToParameters()
+        {
+            var command = new CommandAttribute();
+            var parameters = new SortedList<int, object>();
+            var key = "Hello World";
+            var parameterType = typeof(Random);
+            var parameter = new TestParameterInfo(type: parameterType);
+            var value = new object();
+
+            command.Values.Add(new ValueAttribute
+            {
+                Parameter = parameter
+            });
+
+            var valueConverter = Substitute.For<IValueConverter>();
+            valueConverter.GetValue(key, parameterType).Returns(value);
+
+            var sut = CreateSutImpl(valueConverter: valueConverter);
+
+            var result = sut.SetValueParameter(key, command, parameters, null);
+
+            result.Should().Be(parameter);
+            parameters.Count.Should().Be(1);
+            parameters[0].Should().Be(value);
+        }
+
+        [Fact]
+        public void SetValueParameter_NoMoreValues_Throws()
+        {
+            var command = new CommandAttribute();
+            var parameters = new SortedList<int, object>();
+            var parameter = new TestParameterInfo();
+
+            var sut = CreateSutImpl();
+
+            Action act = () => sut.SetValueParameter("", command, parameters, null);
+
+            act.Should().Throw<BadCommandException>();
+        }
+
+        [Fact]
+        public void SetValueParameter_AddsToLastParameter_ReturnsLastParameter()
+        {
+            var command = new CommandAttribute();
+            var parameters = new SortedList<int, object>();
+            var parameter = new TestParameterInfo();
+
+            var impl = Substitute.For<ICommandExecutorImpl>();
+            impl.TryAddToLastParameter(default, default, default).ReturnsForAnyArgs(true);
+
+            var sut = CreateSutImpl(impl: impl);
+
+            var result = sut.SetValueParameter("", command, parameters, parameter);
+
+            result.Should().Be(parameter);
+        }
+
+        [Fact]
+        public void SetOptionParameter_OptionDoesntExist_Throws()
+        {
+            var commandPart = new CommandPart();
+            var command = new CommandAttribute();
+            var parameters = new SortedList<int, object>();
+
+            var sut = CreateSutImpl();
+
+            Action act = () => sut.SetOptionParameter("", commandPart, command, parameters);
+
+            act.Should().Throw<BadCommandException>();
+        }
+
+        [Fact]
+        public void SetOptionParameter_ParameterIsNotArray_AndAlreadyExists_Throws()
+        {
+            var commandPart = new CommandPart();
+            var command = new CommandAttribute();
+            var parameters = new SortedList<int, object>();
+            var position = 10;
+
+            parameters.Add(position, new object());
+
+            var key = "Hello World";
+
+            command.Options.Add(key, new OptionAttribute
+            {
+                Parameter = new TestParameterInfo(type: typeof(object), position: position)
+            });
+
+            var sut = CreateSutImpl();
+
+            Action act = () => sut.SetOptionParameter(key, commandPart, command, parameters);
+
+            act.Should().Throw<BadCommandException>();
+        }
+
+        [Fact]
+        public void SetOptionParameter_DoesntExist_AddsToParameters()
+        {
+            var commandPart = new CommandPart();
+            var command = new CommandAttribute();
+            var parameters = new SortedList<int, object>();
+            var position = 10;
+            var value = new object();
+            var parameter = new TestParameterInfo(type: typeof(object), position: position);
+
+            var key = "Hello World";
+
+            command.Options.Add(key, new OptionAttribute
+            {
+                Parameter = parameter
+            });
+
+            var valueConverter = Substitute.For<IValueConverter>();
+            valueConverter.GetValue(default, default).ReturnsForAnyArgs(value);
+
+            var sut = CreateSutImpl(valueConverter: valueConverter);
+
+            var result = sut.SetOptionParameter(key, commandPart, command, parameters);
+
+            result.Should().Be(parameter);
+
+            parameters[position].Should().Be(value);
+        }
+
+        [Fact]
+        public void SetOptionParameter_IsArray_AndExist_AppendsToExistingValue()
+        {
+            var commandPart = new CommandPart();
+            var command = new CommandAttribute();
+            var parameters = new SortedList<int, object>();
+            var position = 10;
+            var newValue = new[] { new object(), new object() };
+            var existingValue = new[] { new object(), new object() };
+            var parameter = new TestParameterInfo(type: typeof(object[]), position: position);
+
+            var key = "Hello World";
+
+            parameters.Add(position, existingValue);
+
+            command.Options.Add(key, new OptionAttribute
+            {
+                Parameter = parameter
+            });
+
+            var valueConverter = Substitute.For<IValueConverter>();
+            valueConverter.GetValue(default, default).ReturnsForAnyArgs(newValue);
+
+            var sut = CreateSutImpl(valueConverter: valueConverter);
+
+            var result = sut.SetOptionParameter(key, commandPart, command, parameters);
+
+            result.Should().Be(parameter);
+
+            ((Array)parameters[position]).Should().BeEquivalentTo(existingValue.Concat(newValue));
         }
     }
 }
