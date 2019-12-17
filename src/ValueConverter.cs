@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Reflection;
 
 namespace cli_dotnet
 {
@@ -10,6 +9,16 @@ namespace cli_dotnet
             if (type == typeof(bool))
             {
                 return true;
+            }
+
+            if (type.IsEnum)
+            {
+                if (!Enum.TryParse(type, value, true, out var result))
+                {
+                    throw new FormatException($"`{value}` is not a valid value");
+                }
+
+                return result;
             }
 
             var isArray = type.IsArray;
@@ -29,21 +38,6 @@ namespace cli_dotnet
             }
 
             return actualValue;
-        }
-
-        object IValueConverter.CreateDefaultValue(Type type)
-        {
-            if (type.IsArray)
-            {
-                return Array.CreateInstance(type.GetElementType(), 0);
-            }
-
-            if (type == typeof(string))
-            {
-                return "";
-            }
-
-            return Activator.CreateInstance(type);
         }
     }
 }

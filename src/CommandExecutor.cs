@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace cli_dotnet
@@ -207,7 +208,37 @@ namespace cli_dotnet
             {
                 if (!parameters.ContainsKey(parameter.Position))
                 {
-                    parameters.Add(parameter.Position, parameter.HasDefaultValue ? parameter.DefaultValue : _valueConverter.CreateDefaultValue(parameter.ParameterType));
+                    if (!parameter.HasDefaultValue)
+                    {
+                        var value = command.Values.FirstOrDefault(x => x.Parameter == parameter);
+                        if (value != null)
+                        {
+                            throw new BadCommandException(command, "Missing value");
+                        }
+
+                        var option = command.Options.FirstOrDefault(x => x.Value.Parameter == parameter).Value;
+
+                        var sb = new StringBuilder();
+
+                        if (option.ShortForm != '\0')
+                        {
+                            sb.Append($"`-{option.ShortForm}`");
+                        }
+
+                        if (option.LongForm != null)
+                        {
+                            if (option.ShortForm != '\0')
+                            {
+                                sb.Append(" or ");
+                            }
+
+                            sb.Append($"`--{option.LongForm}`");
+                        }
+
+                        throw new BadCommandException(command, $"{sb} must be specified");
+                    }
+
+                    parameters.Add(parameter.Position, parameter.DefaultValue);
                 }
             }
         }

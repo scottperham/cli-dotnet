@@ -6,6 +6,13 @@ using System.Threading.Tasks;
 
 namespace testcli
 {
+    public enum StateFlag
+    {
+        Active,
+        Archived,
+        Deleted
+    }
+
     public class UserActions
     {
         private readonly State _state;
@@ -16,7 +23,10 @@ namespace testcli
         }
 
         [Command]
-        public Task Permissions([Value] string username, [Option('p')] string[] perms, [Option('o', noLongForm: true)] bool overwrite)
+        public Task Permissions(
+            [Value] string username, 
+            [Option('p')] string[] perms, 
+            [Option('o', noLongForm: true)] bool overwrite = false)
         {
             Console.WriteLine($"Setting permissions for {username}");
 
@@ -28,6 +38,12 @@ namespace testcli
             }
 
             return Task.CompletedTask;
+        }
+
+        [Command]
+        public void SetState(StateFlag state)
+        {
+
         }
 
         [Command(helpText:"Creates a new user")]
@@ -55,9 +71,9 @@ namespace testcli
 
         [Command(helpText:"Lists users")]
         public Task List(
-            [Option('a', "all", "Include users who aren't allowed to login")]bool showAll,
-            [Option('d', "desc", "Sort users in decending order")]bool descending,
-            [Option('s')] bool singleLine)
+            [Option('a', "all", "Include users who aren't allowed to login")]bool showAll = false,
+            [Option('d', "desc", "Sort users in decending order")]bool descending = false,
+            [Option('s')] bool singleLine = false)
         {
             var users = _state.Users.Values.AsEnumerable();
 
