@@ -25,6 +25,25 @@ namespace cli_dotnet
             _impl = impl ?? this;
         }
 
+        async public Task ExecuteAsync(MethodInfo method)
+        {
+            var commandAtt = method.GetCustomAttribute<CommandAttribute>();
+            commandAtt.Method = method;
+
+            _attributeDecorator.Decorate(commandAtt);
+
+            var commandParts = _parser.Parse().GetEnumerator();
+
+            try
+            {
+                await _impl.ExecuteCommandAsync(commandAtt, commandParts);
+            }
+            catch (BadCommandException bce)
+            {
+                _commandHelper.WriteCommandHelp(bce.Command, _options);
+            }
+        }
+
         async public Task ExecuteAsync<T>(T rootCommand)
         {
             var verbAtt = new VerbAttribute
@@ -214,7 +233,7 @@ namespace cli_dotnet
 
         async Task ICommandExecutorImpl.ExecuteActualCommandAsync(CommandAttribute command, SortedList<int, object> parameters)
         {
-            var result = command.Method.Invoke(command.ParentVerb.Instance, parameters.Values.ToArray());
+            var result = command.Method.Invoke(command.ParentVerb?.Instance, parameters.Values.ToArray());
 
             if (result is Task t)
             {

@@ -31,6 +31,54 @@ namespace cli_dotnet.test.unit
                                         impl);
         }
 
+        [Command]
+        static void Method() { }
+
+        [Fact]
+        async public Task ExecuteAsync_MethodInfo_WrapsCommandAndCallsExecuteInternal()
+        {
+            var commandParts = new List<CommandPart>();
+
+            var parser = Substitute.For<ICommandParser>();
+            parser.Parse().Returns(commandParts);
+
+            var attributeDecorator = Substitute.For<IAttributeDecorator>();
+
+            var impl = Substitute.For<ICommandExecutorImpl>();
+
+            var sut = CreateSut(parser, attributeDecorator: attributeDecorator, impl: impl);
+            
+            var commandMethod = ((Action)Method).GetMethodInfo();
+
+            await sut.ExecuteAsync(commandMethod);
+
+            attributeDecorator.Received(1).Decorate(Arg.Is<CommandAttribute>(x => x.Method == commandMethod));
+
+            await impl.ReceivedWithAnyArgs().ExecuteCommandAsync(Arg.Is<CommandAttribute>(x => x.Method == commandMethod), Arg.Any<IEnumerator<CommandPart>>());
+        }
+        [Fact]
+        async public Task ExecuteAsync_MethodInfo_WhenExecuteCommandThrowsCommandError_ShowsHelp()
+        {
+            var parser = Substitute.For<ICommandParser>();
+            parser.Parse().Returns(new CommandPart[0]);
+
+            var options = Substitute.For<ICommandExecutorOptions>();
+
+            var helper = Substitute.For<ICommandHelper>();
+
+            var impl = Substitute.For<ICommandExecutorImpl>();
+
+            var badCommand = new CommandAttribute();
+            impl.WhenForAnyArgs(x => x.ExecuteCommandAsync(default, default)).Throw(new BadCommandException(badCommand, default));
+
+            var sut = CreateSut(parser, executorOptions: options, commandHelper: helper, impl: impl);
+
+            var commandMethod = ((Action)Method).GetMethodInfo();
+            await sut.ExecuteAsync(commandMethod);
+
+            helper.Received(1).WriteCommandHelp(badCommand, options);
+        }
+
         [Fact]
         async public Task ExecuteAsync_WrapsRootCommandAndCallsExecuteInternal()
         {
