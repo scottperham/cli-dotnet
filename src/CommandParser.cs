@@ -76,7 +76,7 @@ namespace cli_dotnet
             return new StringReference(start, _impl.Position + 1 - start);
         }
 
-        StringReference ICommandParserImplementation.ScanTo(char ch, char escape = '\0')
+        StringReference ICommandParserImplementation.ScanTo(char ch, char escape)
         {
             char next;
             char prev = '\0';

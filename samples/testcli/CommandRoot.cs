@@ -45,5 +45,42 @@ namespace testcli
             _state.CurrentContext = null;
             return Task.CompletedTask;
         }
+
+        [Command]
+        public void TestEnumOption(Test test)
+        {
+            Console.WriteLine(test);
+        }
+
+        [Command]
+        public void TestEnumValue([Value] Test test)
+        {
+            Console.WriteLine(test);
+        }
+
+        [Command]
+        public void TestEnumArray(Test[] test)
+        {
+            foreach (var t in test)
+            {
+                Console.WriteLine(t);
+            }
+        }
+
+        [Command]
+        public void TestIntArray(int[] test)
+        {
+            foreach (var t in test)
+            {
+                Console.WriteLine(t);
+            }
+        }
+    }
+
+    public enum Test
+    {
+        Value1,
+        Value2,
+        Value3
     }
 }

@@ -9,6 +9,11 @@ namespace cli_dotnet
         {
             if (type == typeof(bool))
             {
+                if (bool.TryParse(value, out var result))
+                {
+                    return result;
+                }
+
                 return true;
             }
 
@@ -19,7 +24,16 @@ namespace cli_dotnet
                 type = type.GetElementType();
             }
 
-            var actualValue = Convert.ChangeType(value, Type.GetTypeCode(type));
+            object actualValue;
+
+            if (type.IsEnum)
+            {
+                actualValue = GetValueAsEnum(value, type);
+            }
+            else
+            {
+                actualValue = Convert.ChangeType(value, Type.GetTypeCode(type));
+            }
 
             if (isArray)
             {
@@ -29,6 +43,16 @@ namespace cli_dotnet
             }
 
             return actualValue;
+        }
+
+        object GetValueAsEnum(string value, Type enumType)
+        {
+            if (int.TryParse(value, out var intValue))
+            {
+                return Enum.ToObject(enumType, intValue);
+            }
+
+            return Enum.Parse(enumType, value, true);
         }
 
         object IValueConverter.CreateDefaultValue(Type type)
