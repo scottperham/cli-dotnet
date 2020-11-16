@@ -1,5 +1,6 @@
 ﻿using cli_dotnet;
 using System;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace testcli
