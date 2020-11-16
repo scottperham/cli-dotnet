@@ -213,7 +213,7 @@ namespace cli_dotnet.test.unit
             var verb = new VerbAttribute();
 
             var commandHelper = Substitute.For<ICommandHelper>();
-            commandHelper.TryShowHelp(commandPart, verb, key, options).Returns(true);
+            commandHelper.TryShowHelpOrVersion(commandPart, verb, key, options).Returns(true);
 
             var commandParts = new List<CommandPart>(new[] { commandPart });
 
@@ -236,7 +236,7 @@ namespace cli_dotnet.test.unit
             var verb = new VerbAttribute();
 
             var commandHelper = Substitute.For<ICommandHelper>();
-            commandHelper.TryShowHelp(commandPart, verb, key, options).Returns(false);
+            commandHelper.TryShowHelpOrVersion(commandPart, verb, key, options).Returns(false);
 
             var commandParts = new List<CommandPart>(new[] { commandPart });
 

@@ -11,11 +11,17 @@ namespace cli_dotnet
 
         public ConsoleCommandHelper(ICommandHelper commandHelper = null)
         {
-            _commandHelper ??= this;
+            _commandHelper = commandHelper ?? this;
         }
 
-        bool ICommandHelper.TryShowHelp(CommandPart commandPart, CommandAttribute command, string key, ICommandExecutorOptions options)
+        bool ICommandHelper.TryShowHelpOrVersion(CommandPart commandPart, CommandAttribute command, string key, ICommandExecutorOptions options)
         {
+            if ((commandPart.IsShortForm && key[0] == options.VersionShortForm) || (!commandPart.IsShortForm && key.Equals(options.VersionLongForm, StringComparison.OrdinalIgnoreCase)))
+            {
+                _commandHelper.WriteVersion(options);
+                return true;
+            }
+
             if ((commandPart.IsShortForm && key[0] == options.HelpShortForm) || (!commandPart.IsShortForm && key.Equals(options.HelpLongForm, StringComparison.OrdinalIgnoreCase)))
             {
                 _commandHelper.WriteCommandHelp(command, options);
@@ -25,8 +31,14 @@ namespace cli_dotnet
             return false;
         }
 
-        bool ICommandHelper.TryShowHelp(CommandPart commandPart, VerbAttribute verb, string key, ICommandExecutorOptions options)
+        bool ICommandHelper.TryShowHelpOrVersion(CommandPart commandPart, VerbAttribute verb, string key, ICommandExecutorOptions options)
         {
+            if ((commandPart.IsShortForm && key[0] == options.VersionShortForm) || (!commandPart.IsShortForm && key.Equals(options.VersionLongForm, StringComparison.OrdinalIgnoreCase)))
+            {
+                _commandHelper.WriteVersion(options);
+                return true;
+            }
+
             if ((commandPart.IsShortForm && key[0] == options.HelpShortForm) || (!commandPart.IsShortForm && key.Equals(options.HelpLongForm, StringComparison.OrdinalIgnoreCase)))
             {
                 _commandHelper.WriteVerbHelp(verb, options);
@@ -55,7 +67,7 @@ namespace cli_dotnet
 
             foreach (var help in sortedDictionary)
             {
-                Console.WriteLine($"    {help.Key.PadRight(30, ' ')}{help.Value}");
+                Console.WriteLine($"    {help.Key,-30}{help.Value}");
             }
 
             Console.WriteLine();
@@ -87,7 +99,7 @@ namespace cli_dotnet
 
                 foreach (var value in command.Values)
                 {
-                    Console.WriteLine($"    {value.GetName().PadRight(20, ' ')}{value.HelpText}");
+                    Console.WriteLine($"    {value.GetName(),-20}{value.HelpText}");
                 }
             }
 
@@ -147,6 +159,14 @@ namespace cli_dotnet
             foreach (var command in verb.Commands)
             {
                 help.Add($"{prefix} {command.Key}", command.Value.HelpText);
+            }
+        }
+
+        public void WriteVersion(ICommandExecutorOptions options)
+        {
+            foreach(var version in options.VersionProvider.GetVersions())
+            {
+                Console.WriteLine(version);
             }
         }
     }

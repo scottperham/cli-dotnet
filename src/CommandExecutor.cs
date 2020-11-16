@@ -86,7 +86,7 @@ namespace cli_dotnet
             {
                 var key = _parser.GetString(commandParts.Current.Key);
 
-                if (_commandHelper.TryShowHelp(commandParts.Current, verb, key, _options))
+                if (_commandHelper.TryShowHelpOrVersion(commandParts.Current, verb, key, _options))
                 {
                     return;
                 }
@@ -198,7 +198,7 @@ namespace cli_dotnet
             {
                 var key = _parser.GetString(commandParts.Current.Key);
 
-                if (commandParts.Current.IsArgument && _commandHelper.TryShowHelp(commandParts.Current, command, key, _options))
+                if (commandParts.Current.IsArgument && _commandHelper.TryShowHelpOrVersion(commandParts.Current, command, key, _options))
                 {
                     return;
                 }
