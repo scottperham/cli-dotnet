@@ -80,8 +80,8 @@ This would then be called with `notmyverb mycommand`
 Commands can accept any number of values followed by optional flags. If a flag is omitted, the command will be executed with the parameter value set to the default value of the type.
 
 The following command can be called with:
-* `mycommand myvalue --stringoption mystringvalue --booloption false`
-* `mycommand myvalue --stringoption "my string value" --booloption`
+* `mycommand myvalue --stringOption=mystringvalue`
+* `mycommand myvalue --stringOption="my string value" --boolOption`
 * `mycommand myvalue` - This would result in a call such as `MyCommand("myvalue", default, default)`
 
 ```C#
@@ -113,10 +113,10 @@ Parameters can appear in any order. The only caveat is that the _values_ must ap
 
 For example:
 
-The following would all be called with `mycmd val1 val2 val3 --flag`
+The following would all be called with `mycmd val1 val2 val3 --flag` or `mycmd --flag val1 val2 val3`
 
 ```C#
-public Task MyCmd([Value] int firstValue, [Value] int secondValue, [Value] int lastValue) { }
+public Task MyCmd([Value] int firstValue, [Value] int secondValue, [Value] int lastValue, [Option] bool flag) { }
 public Task MyCmd([Option] bool flag, [Value] int firstValue, [Value] int secondValue, [Value] int lastValue) { }
 public Task MyCmd([Value] int firstValue, [Option] bool flag, [Value] int secondValue, [Value] int lastValue) { }
 ...
