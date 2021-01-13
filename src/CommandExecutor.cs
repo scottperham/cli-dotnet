@@ -174,7 +174,7 @@ namespace cli_dotnet
 
         bool ICommandExecutorImpl.TrySetGlobalOption(string key, CommandPart commandPart, GlobalOptionsWrapper globalOptions)
         {
-            if (!globalOptions.Options.TryGetValue(key, out var optionAtt))
+            if (globalOptions?.Options == null || !globalOptions.Options.TryGetValue(key, out var optionAtt))
             {
                 return false;
             }

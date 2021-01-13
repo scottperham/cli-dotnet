@@ -11,72 +11,26 @@ namespace cli_dotnet.test.unit
 {
     public class CommandExecutorTests
     {
-        public ICommandExecutorImpl CreateSutImpl(ICommandParser parser = null, ICommandExecutorOptions executorOptions = null, IAttributeDecorator attributeDecorator = null, IValueConverter valueConverter = null, ICommandHelper commandHelper = null, ICommandExecutorImpl impl = null)
+        public ICommandExecutorImpl CreateSutImpl(ICommandParser parser = null, ICommandExecutorOptions executorOptions = null, IAttributeDecorator attributeDecorator = null, IValueConverter valueConverter = null, ICommandHelper commandHelper = null, ITypeHelper typeHelper = null, ICommandExecutorImpl impl = null)
         {
             return new CommandExecutor(parser ?? Substitute.For<ICommandParser>(),
                                         executorOptions ?? Substitute.For<ICommandExecutorOptions>(),
                                         attributeDecorator ?? Substitute.For<IAttributeDecorator>(),
                                         valueConverter ?? Substitute.For<IValueConverter>(),
                                         commandHelper ?? Substitute.For<ICommandHelper>(),
+                                        typeHelper ?? Substitute.For<ITypeHelper>(),
                                         impl);
         }
 
-        public CommandExecutor CreateSut(ICommandParser parser = null, ICommandExecutorOptions executorOptions = null, IAttributeDecorator attributeDecorator = null, IValueConverter valueConverter = null, ICommandHelper commandHelper = null, ICommandExecutorImpl impl = null)
+        public CommandExecutor CreateSut(ICommandParser parser = null, ICommandExecutorOptions executorOptions = null, IAttributeDecorator attributeDecorator = null, IValueConverter valueConverter = null, ICommandHelper commandHelper = null, ITypeHelper typeHelper = null, ICommandExecutorImpl impl = null)
         {
             return new CommandExecutor(parser ?? Substitute.For<ICommandParser>(),
                                         executorOptions ?? Substitute.For<ICommandExecutorOptions>(),
                                         attributeDecorator ?? Substitute.For<IAttributeDecorator>(),
                                         valueConverter ?? Substitute.For<IValueConverter>(),
                                         commandHelper ?? Substitute.For<ICommandHelper>(),
+                                        typeHelper ?? Substitute.For<ITypeHelper>(),
                                         impl);
-        }
-
-        [Command]
-        static void Method() { }
-
-        [Fact]
-        async public Task ExecuteAsync_MethodInfo_WrapsCommandAndCallsExecuteInternal()
-        {
-            var commandParts = new List<CommandPart>();
-
-            var parser = Substitute.For<ICommandParser>();
-            parser.Parse().Returns(commandParts);
-
-            var attributeDecorator = Substitute.For<IAttributeDecorator>();
-
-            var impl = Substitute.For<ICommandExecutorImpl>();
-
-            var sut = CreateSut(parser, attributeDecorator: attributeDecorator, impl: impl);
-            
-            var commandMethod = ((Action)Method).GetMethodInfo();
-
-            await sut.ExecuteAsync(commandMethod);
-
-            attributeDecorator.Received(1).Decorate(Arg.Is<CommandAttribute>(x => x.Method == commandMethod));
-
-            await impl.ReceivedWithAnyArgs().ExecuteCommandAsync(Arg.Is<CommandAttribute>(x => x.Method == commandMethod), Arg.Any<IEnumerator<CommandPart>>());
-        }
-        [Fact]
-        async public Task ExecuteAsync_MethodInfo_WhenExecuteCommandThrowsCommandError_ShowsHelp()
-        {
-            var parser = Substitute.For<ICommandParser>();
-            parser.Parse().Returns(new CommandPart[0]);
-
-            var options = Substitute.For<ICommandExecutorOptions>();
-
-            var helper = Substitute.For<ICommandHelper>();
-
-            var impl = Substitute.For<ICommandExecutorImpl>();
-
-            var badCommand = new CommandAttribute();
-            impl.WhenForAnyArgs(x => x.ExecuteCommandAsync(default, default)).Throw(new BadCommandException(badCommand, default));
-
-            var sut = CreateSut(parser, executorOptions: options, commandHelper: helper, impl: impl);
-
-            var commandMethod = ((Action)Method).GetMethodInfo();
-            await sut.ExecuteAsync(commandMethod);
-
-            helper.Received(1).WriteCommandHelp(badCommand, options);
         }
 
         [Fact]
@@ -95,11 +49,11 @@ namespace cli_dotnet.test.unit
 
             var rootCommand = new object();
 
-            await sut.ExecuteAsync(rootCommand);
+            await sut.ExecuteAsync(rootCommand, (object)null);
 
-            attributeDecorator.Received(1).Decorate(Arg.Is<VerbAttribute>(x => x.Instance == rootCommand && x.IsRoot));
+            attributeDecorator.Received(1).Decorate(Arg.Is<VerbAttribute>(x => x.Instance == rootCommand && x.IsRoot), typeof(object));
 
-            await impl.ReceivedWithAnyArgs().ExecuteInternalAsync(Arg.Is<VerbAttribute>(x => x.Instance == rootCommand && x.IsRoot), Arg.Any<IEnumerator<CommandPart>>());
+            await impl.ReceivedWithAnyArgs().ExecuteInternalAsync(Arg.Is<VerbAttribute>(x => x.Instance == rootCommand && x.IsRoot), Arg.Any<IEnumerator<CommandPart>>(), Arg.Any<GlobalOptionsWrapper>());
         }
 
         [Fact]
@@ -115,13 +69,13 @@ namespace cli_dotnet.test.unit
             var impl = Substitute.For<ICommandExecutorImpl>();
 
             var badCommand = new CommandAttribute();
-            impl.WhenForAnyArgs(x => x.ExecuteInternalAsync(default, default)).Throw(new BadCommandException(badCommand, default));
+            impl.WhenForAnyArgs(x => x.ExecuteInternalAsync(default, default, default)).Throw(new BadCommandException(badCommand, default));
 
             var sut = CreateSut(parser, executorOptions: options, commandHelper: helper, impl: impl);
 
-            await sut.ExecuteAsync(new object());
+            await sut.ExecuteAsync(new object(), (object)null);
 
-            helper.Received(1).WriteCommandHelp(badCommand, options);
+            helper.Received(1).WriteCommandHelp(badCommand, options, Arg.Any<GlobalOptionsWrapper>());
         }
 
         [Fact]
@@ -137,13 +91,13 @@ namespace cli_dotnet.test.unit
             var impl = Substitute.For<ICommandExecutorImpl>();
 
             var badVerb = new VerbAttribute();
-            impl.WhenForAnyArgs(x => x.ExecuteInternalAsync(default, default)).Throw(new BadCommandException(badVerb, default));
+            impl.WhenForAnyArgs(x => x.ExecuteInternalAsync(default, default, default)).Throw(new BadCommandException(badVerb, default));
 
             var sut = CreateSut(parser, executorOptions: options, commandHelper: helper, impl: impl);
 
-            await sut.ExecuteAsync(new object());
+            await sut.ExecuteAsync(new object(), (object)null);
 
-            helper.Received(1).WriteVerbHelp(badVerb, options);
+            helper.Received(1).WriteVerbHelp(badVerb, options, Arg.Any<GlobalOptionsWrapper>());
         }
 
         [Fact]
@@ -159,11 +113,11 @@ namespace cli_dotnet.test.unit
             var impl = Substitute.For<ICommandExecutorImpl>();
 
             var exception = new Exception();
-            impl.WhenForAnyArgs(x => x.ExecuteInternalAsync(default, default)).Throw(exception);
+            impl.WhenForAnyArgs(x => x.ExecuteInternalAsync(default, default, default)).Throw(exception);
 
             var sut = CreateSut(parser, executorOptions: options, commandHelper: helper, impl: impl);
 
-            Func<Task> act = () => sut.ExecuteAsync(new object());
+            Func<Task> act = () => sut.ExecuteAsync(new object(), (object)null);
 
             act.Should().Throw<Exception>();
         }
@@ -177,7 +131,7 @@ namespace cli_dotnet.test.unit
 
             var sut = CreateSutImpl();
 
-            Func<Task> act = () => sut.ExecuteInternalAsync(verb, commandParts);
+            Func<Task> act = () => sut.ExecuteInternalAsync(verb, commandParts, new GlobalOptionsWrapper());
 
             act.Should().Throw<BadCommandException>();
         }
@@ -194,7 +148,7 @@ namespace cli_dotnet.test.unit
 
             var sut = CreateSutImpl();
 
-            Func<Task> act = () => sut.ExecuteInternalAsync(verb, commandParts.GetEnumerator());
+            Func<Task> act = () => sut.ExecuteInternalAsync(verb, commandParts.GetEnumerator(), new GlobalOptionsWrapper());
 
             act.Should().Throw<BadCommandException>();
         }
@@ -212,14 +166,16 @@ namespace cli_dotnet.test.unit
 
             var verb = new VerbAttribute();
 
+            var globalOptionsWrapper = new GlobalOptionsWrapper();
+
             var commandHelper = Substitute.For<ICommandHelper>();
-            commandHelper.TryShowHelpOrVersion(commandPart, verb, key, options).Returns(true);
+            commandHelper.TryShowHelpOrVersion(commandPart, verb, key, options, globalOptionsWrapper).Returns(true);
 
             var commandParts = new List<CommandPart>(new[] { commandPart });
 
             var sut = CreateSutImpl(parser, options, commandHelper: commandHelper);
 
-            await sut.ExecuteInternalAsync(verb, commandParts.GetEnumerator());
+            await sut.ExecuteInternalAsync(verb, commandParts.GetEnumerator(), globalOptionsWrapper);
         }
 
         [Fact]
@@ -235,14 +191,16 @@ namespace cli_dotnet.test.unit
 
             var verb = new VerbAttribute();
 
+            var globalOptionsWrapper = new GlobalOptionsWrapper();
+
             var commandHelper = Substitute.For<ICommandHelper>();
-            commandHelper.TryShowHelpOrVersion(commandPart, verb, key, options).Returns(false);
+            commandHelper.TryShowHelpOrVersion(commandPart, verb, key, options, globalOptionsWrapper).Returns(false);
 
             var commandParts = new List<CommandPart>(new[] { commandPart });
 
             var sut = CreateSutImpl(parser, options, commandHelper: commandHelper);
 
-            Func<Task> act = () => sut.ExecuteInternalAsync(verb, commandParts.GetEnumerator());
+            Func<Task> act = () => sut.ExecuteInternalAsync(verb, commandParts.GetEnumerator(), globalOptionsWrapper);
 
             act.Should().Throw<BadCommandException>();
         }
@@ -260,6 +218,8 @@ namespace cli_dotnet.test.unit
 
             var innerVerb = new VerbAttribute();
 
+            var globalOptionsWrapper = new GlobalOptionsWrapper();
+
             var verb = new VerbAttribute();
             verb.Verbs.Add(key, innerVerb);
 
@@ -267,9 +227,9 @@ namespace cli_dotnet.test.unit
 
             var sut = CreateSutImpl(parser, impl: impl);
 
-            await sut.ExecuteInternalAsync(verb, commandParts.GetEnumerator());
+            await sut.ExecuteInternalAsync(verb, commandParts.GetEnumerator(), globalOptionsWrapper);
 
-            await impl.Received(1).ExecuteInternalAsync(innerVerb, Arg.Any<IEnumerator<CommandPart>>());
+            await impl.Received(1).ExecuteInternalAsync(innerVerb, Arg.Any<IEnumerator<CommandPart>>(), globalOptionsWrapper);
         }
 
         [Fact]
@@ -285,6 +245,8 @@ namespace cli_dotnet.test.unit
 
             var command = new CommandAttribute();
 
+            var globalOptionsWrapper = new GlobalOptionsWrapper();
+
             var verb = new VerbAttribute();
             verb.Commands.Add(key, command);
 
@@ -292,9 +254,9 @@ namespace cli_dotnet.test.unit
 
             var sut = CreateSutImpl(parser, impl: impl);
 
-            await sut.ExecuteInternalAsync(verb, commandParts.GetEnumerator());
+            await sut.ExecuteInternalAsync(verb, commandParts.GetEnumerator(), globalOptionsWrapper);
 
-            await impl.Received(1).ExecuteCommandAsync(command, Arg.Any<IEnumerator<CommandPart>>());
+            await impl.Received(1).ExecuteCommandAsync(command, Arg.Any<IEnumerator<CommandPart>>(), globalOptionsWrapper);
         }
 
         [Fact]
@@ -306,11 +268,13 @@ namespace cli_dotnet.test.unit
 
             var verb = new VerbAttribute();
 
+            var globalOptionsWrapper = new GlobalOptionsWrapper();
+
             var commandParts = new List<CommandPart>(new[] { commandPart });
 
             var sut = CreateSutImpl();
 
-            Func<Task> act = () => sut.ExecuteInternalAsync(verb, commandParts.GetEnumerator());
+            Func<Task> act = () => sut.ExecuteInternalAsync(verb, commandParts.GetEnumerator(), globalOptionsWrapper);
 
             act.Should().Throw<BadCommandException>();
         }
@@ -427,7 +391,9 @@ namespace cli_dotnet.test.unit
 
             var sut = CreateSutImpl(impl: impl, parser: parser);
 
-            await sut.ExecuteCommandAsync(command, commandParts.GetEnumerator());
+            var globalOptionsWrapper = new GlobalOptionsWrapper();
+
+            await sut.ExecuteCommandAsync(command, commandParts.GetEnumerator(), globalOptionsWrapper);
 
             impl.Received(1).SetValueParameter(key1, command, Arg.Any<SortedList<int, object>>(), Arg.Any<ParameterInfo>());
             impl.Received(1).SetValueParameter(key2, command, Arg.Any<SortedList<int, object>>(), Arg.Any<ParameterInfo>());
@@ -444,7 +410,9 @@ namespace cli_dotnet.test.unit
 
             var sut = CreateSutImpl(impl: impl);
 
-            await sut.ExecuteCommandAsync(command, commandParts.GetEnumerator());
+            var globalOptionsWrapper = new GlobalOptionsWrapper();
+
+            await sut.ExecuteCommandAsync(command, commandParts.GetEnumerator(), globalOptionsWrapper);
 
             impl.ReceivedWithAnyArgs(1).AddDefaultValues(command, Arg.Any<SortedList<int, object>>());
         }
@@ -459,7 +427,9 @@ namespace cli_dotnet.test.unit
 
             var sut = CreateSutImpl(impl: impl);
 
-            await sut.ExecuteCommandAsync(command, commandParts.GetEnumerator());
+            var globalOptionsWrapper = new GlobalOptionsWrapper();
+
+            await sut.ExecuteCommandAsync(command, commandParts.GetEnumerator(), globalOptionsWrapper);
 
             await impl.Received(1).ExecuteActualCommandAsync(command, Arg.Any<SortedList<int, object>>());
         }
