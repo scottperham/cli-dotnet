@@ -40,7 +40,7 @@ namespace testcli
         }
 
         [Command(helpText:"Logs out the current user")]
-        public Task Logout()
+        public Task Logout(GlobalOptions options)
         {
             _state.CurrentContext = null;
             return Task.CompletedTask;

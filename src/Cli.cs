@@ -13,11 +13,26 @@ namespace cli_dotnet
         /// <param name="command">Optional command string, if this is left null, the process arguments will be used instead.</param>
         /// <param name="commandExecutorOptions">Command executor options, such as the short form value for a help argument.</param>
         /// <returns></returns>
-        public static Task ExecuteAsync<T>(T rootCommand, string command = null, ICommandExecutorOptions commandExecutorOptions = null)
+        public static Task ExecuteAsync<TRoot, TGlobalOptions>(TRoot rootCommand, string command, TGlobalOptions globalOptions, ICommandExecutorOptions commandExecutorOptions = null)
         {
             var commandExecutor = GetCommandExecutor(command, commandExecutorOptions);
 
-            return commandExecutor.ExecuteAsync(rootCommand);
+            return commandExecutor.ExecuteAsync(rootCommand, globalOptions);
+        }
+
+        public static Task ExecuteAsync<TRoot, TGlobalOptions>(TRoot rootCommand, string command, ICommandExecutorOptions commandExecutorOptions = null)
+            where TGlobalOptions : new()
+        {
+            var commandExecutor = GetCommandExecutor(command, commandExecutorOptions);
+
+            return commandExecutor.ExecuteAsync(rootCommand, new TGlobalOptions());
+        }
+
+        public static Task ExecuteAsync<TRoot>(TRoot rootCommand, string command, ICommandExecutorOptions commandExecutorOptions = null)
+        {
+            var commandExecutor = GetCommandExecutor(command, commandExecutorOptions);
+
+            return commandExecutor.ExecuteAsync<TRoot, object>(rootCommand, null);
         }
 
         /// <summary>
@@ -27,12 +42,12 @@ namespace cli_dotnet
         /// <param name="command">Optional command string, if this is left null, the process arguments will be used instead.</param>
         /// <param name="commandExecutorOptions">Command executor options, such as the short form value for a help argument.</param>
         /// <returns></returns>
-        public static Task ExecuteAsync(MethodInfo method, string command = null, ICommandExecutorOptions commandExecutorOptions = null)
-        {
-            var commandExecutor = GetCommandExecutor(command, commandExecutorOptions);
+        //public static Task ExecuteAsync(MethodInfo method, string command = null, ICommandExecutorOptions commandExecutorOptions = null)
+        //{
+        //    var commandExecutor = GetCommandExecutor(command, commandExecutorOptions);
 
-            return commandExecutor.ExecuteAsync(method);
-        }
+        //    return commandExecutor.ExecuteAsync(method);
+        //}
 
         static CommandExecutor GetCommandExecutor(string command, ICommandExecutorOptions commandExecutorOptions)
         {
@@ -43,7 +58,7 @@ namespace cli_dotnet
             var valueConverter = new ValueConverter();
             var commandHelper = new ConsoleCommandHelper();
 
-            return new CommandExecutor(parser, options, attributeDecorator, valueConverter, commandHelper);
+            return new CommandExecutor(parser, options, attributeDecorator, valueConverter, commandHelper, attributeHelper);
         }
 
         static string GetCommandLine()

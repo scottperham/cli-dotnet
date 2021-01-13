@@ -15,7 +15,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{97085E01
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "cli-dotnet.test.unit", "test\cli-dotnet.test.unit\cli-dotnet.test.unit.csproj", "{E1F00592-2336-497C-866B-91A3C0F0D43F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "testtool", "samples\testtool\testtool.csproj", "{E20B2D9D-CF42-4800-AEF8-9D026D36412E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "testtool", "samples\testtool\testtool.csproj", "{E20B2D9D-CF42-4800-AEF8-9D026D36412E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

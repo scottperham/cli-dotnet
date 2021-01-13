@@ -30,7 +30,7 @@ namespace testcli
             return Task.CompletedTask;
         }
 
-        [Command(helpText:"Creates a new user")]
+        [LocalizedCommand(helpTextKey:"CREATE NEW USER KEY")]
         public Task Create(
             [Value] string username, 
             [Value] string password,

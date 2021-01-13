@@ -49,7 +49,7 @@ namespace testcli
         {
             try
             {
-                await Cli.ExecuteAsync(new CommandRoot(state), command);
+                await Cli.ExecuteAsync(new CommandRoot(state), command, new GlobalOptions());
             }
             catch(Exception ex)
             {
@@ -59,5 +59,11 @@ namespace testcli
                 Console.ForegroundColor = oldColor;
             }
         }
+    }
+
+    public class GlobalOptions
+    { 
+        [GlobalOption]
+        public string LogLevel { get; set; }
     }
 }
