@@ -7,14 +7,16 @@ namespace cli_dotnet
     [AttributeUsage(AttributeTargets.Property)]
     public class VerbAttribute : Attribute
     { 
-        public VerbAttribute(string name = default, string helpText = default)
+        public VerbAttribute(string name = default, string helpText = default, string category = default)
         {
             Name = name;
             HelpText = helpText;
+            Category = category;
         }
 
         public string Name { get; }
-        public string HelpText { get; }
+        public virtual string HelpText { get; }
+        public string Category { get; }
 
         internal bool IsRoot { get; set; }
         internal PropertyInfo Property { get; set; }

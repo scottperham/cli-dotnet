@@ -6,6 +6,13 @@ using System.Threading.Tasks;
 
 namespace cli_dotnet
 {
+    public class GlobalOptionsWrapper
+    {
+        public Type GlobalOptionType { get; set; }
+        public object GlobalOptions { get; set; }
+        public Dictionary<string, GlobalOptionAttribute> Options { get; set; }
+    }
+
     public class CommandExecutor : ICommandExecutorImpl
     {
         private readonly ICommandParser _parser;
@@ -13,38 +20,55 @@ namespace cli_dotnet
         private readonly IAttributeDecorator _attributeDecorator;
         private readonly IValueConverter _valueConverter;
         private readonly ICommandHelper _commandHelper;
+        private readonly ITypeHelper _typeHelper;
         private readonly ICommandExecutorImpl _impl;
 
-        public CommandExecutor(ICommandParser parser, ICommandExecutorOptions executorOptions, IAttributeDecorator attributeDecorator, IValueConverter valueConverter, ICommandHelper commandHelper, ICommandExecutorImpl impl = null)
+        public CommandExecutor(ICommandParser parser, ICommandExecutorOptions executorOptions, IAttributeDecorator attributeDecorator, IValueConverter valueConverter, ICommandHelper commandHelper, ITypeHelper typeHelper, ICommandExecutorImpl impl = null)
         {
             _parser = parser;
             _options = executorOptions;
             _attributeDecorator = attributeDecorator;
             _valueConverter = valueConverter;
             _commandHelper = commandHelper;
+            _typeHelper = typeHelper;
             _impl = impl ?? this;
         }
 
-        async public Task ExecuteAsync(MethodInfo method)
+        GlobalOptionsWrapper ICommandExecutorImpl.GetGlobalOptions<T>(T globalOptions)
         {
-            var commandAtt = method.GetCustomAttribute<CommandAttribute>();
-            commandAtt.Method = method;
+            var options = new Dictionary<string, GlobalOptionAttribute>();
 
-            _attributeDecorator.Decorate(commandAtt);
-
-            var commandParts = _parser.Parse().GetEnumerator();
-
-            try
+            foreach(var property in _typeHelper.GetGlobalOptionProperties(globalOptions))
             {
-                await _impl.ExecuteCommandAsync(commandAtt, commandParts);
+                var optionAtt = property.GetCustomAttribute<GlobalOptionAttribute>();
+
+                if (optionAtt == null)
+                {
+                    continue;
+                }
+
+                _attributeDecorator.Decorate(optionAtt, property);
+
+                if (optionAtt.ShortForm != '\0')
+                {
+                    options[optionAtt.ShortForm.ToString()] = optionAtt;
+                }
+
+                if (optionAtt.LongForm != null)
+                {
+                    options[optionAtt.LongForm] = optionAtt;
+                }
             }
-            catch (BadCommandException bce)
+
+            return new GlobalOptionsWrapper
             {
-                _commandHelper.WriteCommandHelp(bce.Command, _options);
-            }
+                GlobalOptionType = typeof(T),
+                GlobalOptions = globalOptions,
+                Options = options
+            };
         }
 
-        async public Task ExecuteAsync<T>(T rootCommand)
+        async public Task ExecuteAsync<TRoot, TGlobalOptions>(TRoot rootCommand, TGlobalOptions globalOptions)
         {
             var verbAtt = new VerbAttribute
             {
@@ -52,13 +76,15 @@ namespace cli_dotnet
                 Instance = rootCommand
             };
 
-            _attributeDecorator.Decorate(verbAtt);
+            var globalOptionsWrapper = _impl.GetGlobalOptions(globalOptions);
+
+            _attributeDecorator.Decorate(verbAtt, typeof(TGlobalOptions));
 
             var commandParts = _parser.Parse().GetEnumerator();
 
             try
             {
-                await _impl.ExecuteInternalAsync(verbAtt, commandParts);
+                await _impl.ExecuteInternalAsync(verbAtt, commandParts, globalOptionsWrapper);
             }
             catch(BadCommandException bce)
             {
@@ -66,16 +92,16 @@ namespace cli_dotnet
 
                 if (bce.Command != null)
                 {
-                    _commandHelper.WriteCommandHelp(bce.Command, _options);
+                    _commandHelper.WriteCommandHelp(bce.Command, _options, globalOptionsWrapper);
                 }
                 else
                 {
-                    _commandHelper.WriteVerbHelp(bce.Verb, _options);
+                    _commandHelper.WriteVerbHelp(bce.Verb, _options, globalOptionsWrapper);
                 }
             }
         }
 
-        async Task ICommandExecutorImpl.ExecuteInternalAsync(VerbAttribute verb, IEnumerator<CommandPart> commandParts)
+        async Task ICommandExecutorImpl.ExecuteInternalAsync(VerbAttribute verb, IEnumerator<CommandPart> commandParts, GlobalOptionsWrapper globalOptions)
         {
             if (!commandParts.MoveNext())
             {
@@ -86,7 +112,13 @@ namespace cli_dotnet
             {
                 var key = _parser.GetString(commandParts.Current.Key);
 
-                if (_commandHelper.TryShowHelpOrVersion(commandParts.Current, verb, key, _options))
+                if (_impl.TrySetGlobalOption(key, commandParts.Current, globalOptions))
+                {
+                    await _impl.ExecuteInternalAsync(verb, commandParts, globalOptions);
+                    return;
+                }
+
+                if (_commandHelper.TryShowHelpOrVersion(commandParts.Current, verb, key, _options, globalOptions))
                 {
                     return;
                 }
@@ -98,14 +130,14 @@ namespace cli_dotnet
 
             if (verb.Verbs.TryGetValue(name, out var nextVerb))
             {
-                await _impl.ExecuteInternalAsync(nextVerb, commandParts);
+                await _impl.ExecuteInternalAsync(nextVerb, commandParts, globalOptions);
 
                 return;
             }
 
             if (verb.Commands.TryGetValue(name, out var nextCommand))
             {
-                await _impl.ExecuteCommandAsync(nextCommand, commandParts);
+                await _impl.ExecuteCommandAsync(nextCommand, commandParts, globalOptions);
                 return;
             }
 
@@ -140,6 +172,22 @@ namespace cli_dotnet
             return true;
         }
 
+        bool ICommandExecutorImpl.TrySetGlobalOption(string key, CommandPart commandPart, GlobalOptionsWrapper globalOptions)
+        {
+            if (globalOptions?.Options == null || !globalOptions.Options.TryGetValue(key, out var optionAtt))
+            {
+                return false;
+            }
+
+            var value = _parser.GetString(commandPart.Value);
+
+            var globalvalue = _valueConverter.GetValue(value, optionAtt.Property.PropertyType);
+
+            optionAtt.Property.SetValue(globalOptions.GlobalOptions, globalvalue);
+
+            return true;
+        }
+
         ParameterInfo ICommandExecutorImpl.SetOptionParameter(string key, CommandPart commandPart, CommandAttribute command, SortedList<int, object> parameters)
         {
             if (!command.Options.TryGetValue(key, out var option))
@@ -148,6 +196,7 @@ namespace cli_dotnet
             }
 
             var valueString = _parser.GetString(commandPart.Value);
+
             var value = _valueConverter.GetValue(valueString, option.Parameter.ParameterType);
 
             if (parameters.TryGetValue(option.Parameter.Position, out var existingValue))
@@ -188,7 +237,7 @@ namespace cli_dotnet
             return parameter;
         }
 
-        async Task ICommandExecutorImpl.ExecuteCommandAsync(CommandAttribute command, IEnumerator<CommandPart> commandParts)
+        async Task ICommandExecutorImpl.ExecuteCommandAsync(CommandAttribute command, IEnumerator<CommandPart> commandParts, GlobalOptionsWrapper globalOptions)
         {
             var parameters = new SortedList<int, object>();
 
@@ -198,13 +247,18 @@ namespace cli_dotnet
             {
                 var key = _parser.GetString(commandParts.Current.Key);
 
-                if (commandParts.Current.IsArgument && _commandHelper.TryShowHelpOrVersion(commandParts.Current, command, key, _options))
+                if (commandParts.Current.IsArgument && _commandHelper.TryShowHelpOrVersion(commandParts.Current, command, key, _options, globalOptions))
                 {
                     return;
                 }
 
                 if (commandParts.Current.IsArgument)
                 {
+                    if (_impl.TrySetGlobalOption(key, commandParts.Current, globalOptions))
+                    {
+                        continue;
+                    }
+
                     lastParameter = _impl.SetOptionParameter(key, commandParts.Current, command, parameters);
                 }
                 else
@@ -214,6 +268,11 @@ namespace cli_dotnet
             }
 
             _impl.AddDefaultValues(command, parameters);
+
+            if (globalOptions.GlobalOptions != null && command.GlobalOptionsParameter != null)
+            {
+                parameters[command.GlobalOptionsParameter.Position] = globalOptions.GlobalOptions;
+            }
 
             await _impl.ExecuteActualCommandAsync(command, parameters);
 

@@ -32,5 +32,10 @@ namespace cli_dotnet
         {
             return instance.GetType().GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly | BindingFlags.GetProperty | BindingFlags.InvokeMethod);
         }
+
+        public PropertyInfo[] GetGlobalOptionProperties(object instance)
+        {
+            return instance.GetType().GetProperties();
+        }
     }
 }

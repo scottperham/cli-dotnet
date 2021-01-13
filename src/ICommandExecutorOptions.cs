@@ -1,4 +1,6 @@
-﻿namespace cli_dotnet
+﻿using System;
+
+namespace cli_dotnet
 {
     public interface ICommandExecutorOptions
     {
@@ -8,6 +10,10 @@
         char VersionShortForm { get; }
         string VersionLongForm { get; }
 
+        bool ValuesFirst { get; set; }
+
         IVersionProvider VersionProvider { get; }
+
+        void SetGlobalOptions<T>();
     }
 }

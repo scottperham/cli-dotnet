@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System;
+using System.Reflection;
 
 namespace cli_dotnet
 {
@@ -13,7 +14,7 @@ namespace cli_dotnet
             _attributeDecorator = attributeDecorator ?? this;
         }
 
-        void IAttributeDecorator.Decorate(VerbAttribute parentVerbAtt)
+        void IAttributeDecorator.Decorate(VerbAttribute parentVerbAtt, Type globalOptionsType)
         {
             foreach (var member in _typeHelper.GetPropertiesAndMethods(parentVerbAtt.Instance))
             {
@@ -22,23 +23,29 @@ namespace cli_dotnet
                     childVerbAtt.Property = property;
                     childVerbAtt.ParentVerb = parentVerbAtt;
                     childVerbAtt.Instance = property.GetValue(parentVerbAtt.Instance);
-                    _attributeDecorator.Decorate(childVerbAtt);
+                    _attributeDecorator.Decorate(childVerbAtt, globalOptionsType);
                     parentVerbAtt.Verbs[childVerbAtt.GetName()] = childVerbAtt;
                 }
                 else if (member is MethodInfo method && _typeHelper.TryGetCommandAttribute(method, out var commandAtt))
                 {
                     commandAtt.ParentVerb = parentVerbAtt;
                     commandAtt.Method = method;
-                    _attributeDecorator.Decorate(commandAtt);
+                    _attributeDecorator.Decorate(commandAtt, globalOptionsType);
                     parentVerbAtt.Commands[commandAtt.GetName()] = commandAtt;
                 }
             }
         }
 
-        void IAttributeDecorator.Decorate(CommandAttribute commandAttribute)
+        void IAttributeDecorator.Decorate(CommandAttribute commandAttribute, Type globalOptionsType)
         {
             foreach (var parameter in commandAttribute.Method.GetParameters())
             {
+                if (parameter.ParameterType == globalOptionsType)
+                {
+                    commandAttribute.GlobalOptionsParameter = parameter;
+                    continue;
+                }
+
                 if (_typeHelper.TryGetValueAttribute(parameter, out var valueAtt))
                 {
                     valueAtt.Parameter = parameter;
@@ -66,6 +73,11 @@ namespace cli_dotnet
                     commandAttribute.Options[optAtt.LongForm] = optAtt;
                 }
             }
+        }
+
+        void IAttributeDecorator.Decorate(GlobalOptionAttribute optionAttribute, PropertyInfo property)
+        {
+            optionAttribute.Property = property;
         }
     }
 }

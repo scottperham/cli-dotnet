@@ -9,5 +9,6 @@ namespace cli_dotnet
         bool TryGetVerbAttribute(PropertyInfo propertyInfo, out VerbAttribute verbAttribute);
         bool TryGetCommandAttribute(MethodInfo methodInfo, out CommandAttribute commandAttribute);
         MemberInfo[] GetPropertiesAndMethods(object instance);
+        PropertyInfo[] GetGlobalOptionProperties(object instance);
     }
 }
