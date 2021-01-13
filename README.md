@@ -109,7 +109,7 @@ public Task MyCommand(
 
 This would accept `mycommand -s valNoSpaces` or `mycommand -s "val with spaces"`
 
-Although Values must appear before Options in the executed command, the parameters can appear in any order. The only caveat is that the _values_ must appear in the order they will be used.
+Parameters can appear in any order. The only caveat is that the _values_ must appear in the order they will be used.
 
 For example:
 
@@ -138,9 +138,17 @@ public void MyCmd([Value] string[] test) { }
 ```
 can be called with: mycmd value1 value2 value3
 
+### Enum values
+
+_Help coming for enum values..._
+
 ### Default values
 
 If any option of value is omitted, then it will be substited with the CLR default value for the type, with the exception of `string` which will be substituted by and empty string (`""`) and array types that will be an empty instance of the array (`new T[0]`).
+
+### Global options
+
+_Help coming for Global Options..._
 
 ### Help
 
